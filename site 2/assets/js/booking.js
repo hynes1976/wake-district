@@ -1,6 +1,8 @@
 /* ============================================================
    Wake District — booking page logic
    - Renders the session options
+   - Pick-up location + group + customer details
+   - Blocks out holiday dates (fetched from /api/blocked-dates)
    - Keeps the live summary in sync
    - Validates, then asks the server (/api/create-checkout) to
      create a Stripe Checkout session and redirects to it.
@@ -19,6 +21,9 @@ const EXPERIENCES = [
   { id: "full-day", name: "Full Day",        duration: "8 hours", price: 700 },
 ];
 
+// Sessions that can ONLY launch from Swan/Lakeside (not Fell Foot)
+const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
+
 // Operating window for start times (24h). Adjust to suit the season.
 const OPEN_HOUR = 8;
 const LAST_START_HOUR = 18;
@@ -26,7 +31,8 @@ const LAST_START_HOUR = 18;
 const gbp = (n) => "£" + n.toLocaleString("en-GB");
 const $ = (id) => document.getElementById(id);
 
-const state = { exp: null, date: "", time: "", people: "" };
+const state = { exp: null, date: "", time: "", location: "", people: "" };
+let BLOCKED = new Set(); // holiday / closed dates as "YYYY-MM-DD"
 
 /* ---- Render session options ---- */
 function renderExperiences() {
@@ -75,6 +81,18 @@ function setDateLimits() {
   d.max = max.toISOString().split("T")[0];
 }
 
+/* ---- Fetch holiday / blocked dates so customers can't book them ---- */
+async function loadBlockedDates() {
+  try {
+    const res = await fetch("/api/blocked-dates");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.dates)) BLOCKED = new Set(data.dates);
+  } catch {
+    /* If the endpoint isn't set up yet, just allow all dates. */
+  }
+}
+
 function prettyDate(iso) {
   if (!iso) return "—";
   return new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
@@ -87,6 +105,7 @@ function updateSummary() {
   $("sExp").textContent = state.exp ? `${state.exp.name}` : "—";
   $("sDate").textContent = prettyDate(state.date);
   $("sTime").textContent = state.time || "—";
+  $("sLoc").textContent = state.location || "—";
   $("sPeople").textContent = state.people ? `${state.people} ${state.people === "1" ? "person" : "people"}` : "—";
   $("sTotal").textContent = state.exp ? gbp(state.exp.price) : "£0";
 }
@@ -95,7 +114,11 @@ function updateSummary() {
 function validate() {
   if (!state.exp) return "Please choose a session.";
   if (!state.date) return "Please choose a date.";
+  if (BLOCKED.has(state.date)) return "Sorry, we're closed on that date — please pick another day.";
   if (!state.time) return "Please choose a start time.";
+  if (!state.location) return "Please choose a pick-up location.";
+  if (SWAN_LAKESIDE_ONLY.includes(state.exp.id) && state.location === "Fell Foot")
+    return "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only. Please choose one of those pick-up points.";
   if (!state.people) return "Please tell us how many people are coming.";
   const name = $("name").value.trim();
   const email = $("email").value.trim();
@@ -131,6 +154,7 @@ async function handleSubmit(e) {
     experienceId: state.exp.id,
     date: state.date,
     time: state.time,
+    location: state.location,
     people: state.people,
     name: $("name").value.trim(),
     email: $("email").value.trim(),
@@ -157,14 +181,30 @@ async function handleSubmit(e) {
   }
 }
 
+/* ---- React to a chosen date (block holidays) ---- */
+function onDateChange(value) {
+  state.date = value;
+  const hint = $("dateHint");
+  if (value && BLOCKED.has(value)) {
+    hint.textContent = "We're closed on that date — please choose another day.";
+    hint.style.color = "#d6453c";
+  } else {
+    hint.textContent = "Sessions run during daylight hours, weather permitting.";
+    hint.style.color = "";
+  }
+  updateSummary();
+}
+
 /* ---- Wire up ---- */
 document.addEventListener("DOMContentLoaded", () => {
   renderExperiences();
   renderTimes();
   setDateLimits();
+  loadBlockedDates();
 
-  $("date").addEventListener("change", (e) => { state.date = e.target.value; updateSummary(); });
+  $("date").addEventListener("change", (e) => onDateChange(e.target.value));
   $("time").addEventListener("change", (e) => { state.time = e.target.value; updateSummary(); });
+  $("location").addEventListener("change", (e) => { state.location = e.target.value; updateSummary(); });
   $("people").addEventListener("change", (e) => { state.people = e.target.value; updateSummary(); });
   $("bookingForm").addEventListener("submit", handleSubmit);
 
