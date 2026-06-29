@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Book Now | Wake District</title>
-  <meta name="description" content="Book your watersports time slot on Lake Windermere with Wake District. Secure online payment by card." />
+  <meta name="description" content="Book your watersports time slot on Lake Windermere with Wake District. See live availability and pay securely by card." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -29,22 +29,31 @@
             <h3 style="margin-bottom:16px">1. Choose your session</h3>
             <div class="exp-select" id="expSelect"><!-- options injected by booking.js --></div>
 
-            <h3 style="margin:28px 0 16px">2. Date &amp; start time</h3>
-            <div class="form-row cols-2">
+            <h3 style="margin:28px 0 16px">2. Choose your date</h3>
+            <div class="form-row">
               <div>
-                <label for="date">Date <span class="req">*</span></label>
-                <input id="date" name="date" type="date" required />
-                <p class="field-hint" id="dateHint">Sessions run during daylight hours, weather permitting.</p>
-              </div>
-              <div>
-                <label for="time">Start time <span class="req">*</span></label>
-                <select id="time" name="time" required>
-                  <option value="">Select a time…</option>
-                </select>
+                <div class="cal" id="calendar"><!-- calendar injected by booking.js --></div>
+                <div class="cal-legend">
+                  <span><i class="lg-av"></i> Available</span>
+                  <span><i class="lg-bk"></i> Some slots booked</span>
+                  <span><i class="lg-cl"></i> Closed</span>
+                </div>
+                <div class="selected-date empty" id="selectedDate">No date selected yet.</div>
               </div>
             </div>
 
-            <h3 style="margin:14px 0 16px">3. Pick-up location</h3>
+            <h3 style="margin:22px 0 16px">3. Start time</h3>
+            <div class="form-row">
+              <div>
+                <label for="time">Start time <span class="req">*</span></label>
+                <select id="time" name="time" required disabled>
+                  <option value="">Choose a date first…</option>
+                </select>
+                <p class="field-hint" id="timeHint">Times already booked on your chosen day won't appear here.</p>
+              </div>
+            </div>
+
+            <h3 style="margin:14px 0 16px">4. Pick-up location</h3>
             <div class="form-row">
               <div>
                 <label for="location">Where would you like to be picked up? <span class="req">*</span></label>
@@ -58,7 +67,7 @@
               </div>
             </div>
 
-            <h3 style="margin:14px 0 16px">4. Your group</h3>
+            <h3 style="margin:14px 0 16px">5. Your group</h3>
             <div class="form-row cols-2">
               <div>
                 <label for="people">Number of people <span class="req">*</span></label>
@@ -75,7 +84,7 @@
               </div>
             </div>
 
-            <h3 style="margin:14px 0 16px">5. Your details</h3>
+            <h3 style="margin:14px 0 16px">6. Your details</h3>
             <div class="form-row cols-2">
               <div><label for="name">Full name <span class="req">*</span></label><input id="name" name="name" required autocomplete="name" /></div>
               <div><label for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" required autocomplete="email" /></div>
