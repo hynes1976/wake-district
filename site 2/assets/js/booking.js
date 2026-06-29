@@ -1,16 +1,18 @@
 /* ============================================================
-   Wake District — booking page logic
+   Wake District — booking page logic + availability calendar
    - Renders the session options
+   - Month calendar showing Closed (holiday) and partly-booked days
+   - Selecting a day offers only the start times still free
    - Pick-up location + group + customer details
-   - Blocks out holiday dates (fetched from /api/blocked-dates)
-   - Keeps the live summary in sync
-   - Validates, then asks the server (/api/create-checkout) to
-     create a Stripe Checkout session and redirects to it.
+   - Validates, then asks /api/create-checkout to make a Stripe
+     Checkout session and redirects to it.
 
-   IMPORTANT: prices here are for DISPLAY ONLY. The real price is
-   set again on the server (functions/api/create-checkout.js) so a
-   visitor can never tamper with the amount they pay. If you change
-   a price, change it in BOTH files.
+   Availability comes from /api/availability:
+     { blocked: ["YYYY-MM-DD"], booked: { "YYYY-MM-DD": ["10:00","10:30",...] } }
+   where "booked" lists the 30-minute start slots already taken.
+
+   PRICES here are for DISPLAY ONLY — the real price is set again on
+   the server. If you change a price, change it in BOTH files.
    ============================================================ */
 
 const EXPERIENCES = [
@@ -21,20 +23,26 @@ const EXPERIENCES = [
   { id: "full-day", name: "Full Day",        duration: "8 hours", price: 700 },
 ];
 
-// Sessions that can ONLY launch from Swan/Lakeside (not Fell Foot)
 const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
-
-// Operating window for start times (24h). Adjust to suit the season.
 const OPEN_HOUR = 8;
 const LAST_START_HOUR = 18;
+const MONTHS_AHEAD = 12;
 
 const gbp = (n) => "£" + n.toLocaleString("en-GB");
 const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, "0");
+const isoOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
 const state = { exp: null, date: "", time: "", location: "", people: "" };
-let BLOCKED = new Set(); // holiday / closed dates as "YYYY-MM-DD"
+let BLOCKED = new Set();         // holiday / closed dates "YYYY-MM-DD"
+let BOOKED = {};                 // { "YYYY-MM-DD": Set("HH:MM" occupied start slots) }
 
-/* ---- Render session options ---- */
+const today = new Date(); today.setHours(0, 0, 0, 0);
+const todayISO = isoOf(today.getFullYear(), today.getMonth(), today.getDate());
+const maxDate = new Date(today); maxDate.setMonth(maxDate.getMonth() + MONTHS_AHEAD);
+let view = { y: today.getFullYear(), m: today.getMonth() }; // month being shown
+
+/* ---- Sessions ---- */
 function renderExperiences() {
   $("expSelect").innerHTML = EXPERIENCES.map(
     (e) => `
@@ -47,7 +55,6 @@ function renderExperiences() {
       <span class="price">${gbp(e.price)}</span>
     </label>`
   ).join("");
-
   document.querySelectorAll(".exp-option[data-id]").forEach((el) => {
     el.addEventListener("click", () => {
       document.querySelectorAll(".exp-option[data-id]").forEach((o) => o.classList.remove("selected"));
@@ -59,51 +66,135 @@ function renderExperiences() {
   });
 }
 
-/* ---- Populate start-time options ---- */
-function renderTimes() {
-  const sel = $("time");
-  sel.innerHTML = '<option value="">Select a time…</option>';
-  for (let h = OPEN_HOUR; h <= LAST_START_HOUR; h++) {
-    ["00", "30"].forEach((m) => {
-      if (h === LAST_START_HOUR && m === "30") return;
-      const v = `${String(h).padStart(2, "0")}:${m}`;
-      sel.insertAdjacentHTML("beforeend", `<option value="${v}">${v}</option>`);
-    });
-  }
-}
-
-/* ---- Date constraints: no past dates, up to 12 months ahead ---- */
-function setDateLimits() {
-  const d = $("date");
-  const today = new Date();
-  const max = new Date(); max.setFullYear(max.getFullYear() + 1);
-  d.min = today.toISOString().split("T")[0];
-  d.max = max.toISOString().split("T")[0];
-}
-
-/* ---- Fetch holiday / blocked dates so customers can't book them ---- */
-async function loadBlockedDates() {
+/* ---- Load availability (holidays + booked slots) ---- */
+async function loadAvailability() {
   try {
-    const res = await fetch("/api/blocked-dates");
+    const res = await fetch("/api/availability");
     if (!res.ok) return;
     const data = await res.json();
-    if (Array.isArray(data.dates)) BLOCKED = new Set(data.dates);
+    if (Array.isArray(data.blocked)) BLOCKED = new Set(data.blocked);
+    if (data.booked && typeof data.booked === "object") {
+      BOOKED = {};
+      for (const [d, slots] of Object.entries(data.booked)) BOOKED[d] = new Set(slots);
+    }
   } catch {
-    /* If the endpoint isn't set up yet, just allow all dates. */
+    /* If the endpoint isn't set up yet, everything just shows as available. */
   }
+  renderCalendar();
+}
+
+/* ---- Calendar ---- */
+const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function dayStatus(iso) {
+  if (iso < todayISO) return "past";
+  if (BLOCKED.has(iso)) return "closed";
+  if (BOOKED[iso] && BOOKED[iso].size) return "booked";
+  return "available";
+}
+
+function renderCalendar() {
+  const { y, m } = view;
+  const first = new Date(y, m, 1);
+  const lead = (first.getDay() + 6) % 7; // Monday-first
+  const days = new Date(y, m + 1, 0).getDate();
+  const monthName = first.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  const atMin = y === today.getFullYear() && m === today.getMonth();
+  const atMax = y === maxDate.getFullYear() && m === maxDate.getMonth();
+
+  let cells = "";
+  DOW.forEach((d) => (cells += `<div class="cal-dow">${d}</div>`));
+  for (let i = 0; i < lead; i++) cells += `<div class="cal-day is-empty"></div>`;
+
+  for (let d = 1; d <= days; d++) {
+    const iso = isoOf(y, m, d);
+    const st = dayStatus(iso);
+    const cls = ["cal-day"];
+    if (st === "past") cls.push("is-disabled");
+    else if (st === "closed") cls.push("is-closed");
+    else if (st === "booked") cls.push("is-booked");
+    const selectable = st === "available" || st === "booked";
+    if (!selectable && st !== "closed") cls.push("is-disabled");
+    if (iso === state.date) cls.push("is-selected");
+    const attr = selectable ? `data-iso="${iso}"` : "";
+    cells += `<div class="${cls.join(" ")}" ${attr}>${d}</div>`;
+  }
+
+  $("calendar").innerHTML = `
+    <div class="cal-head">
+      <button type="button" class="cal-nav" id="calPrev" ${atMin ? "disabled" : ""} aria-label="Previous month">‹</button>
+      <div class="cal-title">${monthName}</div>
+      <button type="button" class="cal-nav" id="calNext" ${atMax ? "disabled" : ""} aria-label="Next month">›</button>
+    </div>
+    <div class="cal-grid">${cells}</div>`;
+
+  $("calPrev").addEventListener("click", () => { shiftMonth(-1); });
+  $("calNext").addEventListener("click", () => { shiftMonth(1); });
+  document.querySelectorAll(".cal-day[data-iso]").forEach((el) =>
+    el.addEventListener("click", () => selectDate(el.dataset.iso))
+  );
+}
+
+function shiftMonth(delta) {
+  let m = view.m + delta, y = view.y;
+  if (m < 0) { m = 11; y--; }
+  if (m > 11) { m = 0; y++; }
+  view = { y, m };
+  renderCalendar();
 }
 
 function prettyDate(iso) {
-  if (!iso) return "—";
   return new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
-    weekday: "short", day: "numeric", month: "long", year: "numeric",
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
+}
+
+function selectDate(iso) {
+  state.date = iso;
+  state.time = "";
+  $("selectedDate").textContent = "Selected: " + prettyDate(iso);
+  $("selectedDate").classList.remove("empty");
+  renderTimes(iso);
+  renderCalendar();
+  updateSummary();
+}
+
+/* ---- Start times for the chosen day (minus what's taken) ---- */
+function renderTimes(iso) {
+  const sel = $("time");
+  const taken = BOOKED[iso] || new Set();
+  const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+  const isToday = iso === todayISO;
+
+  const opts = [];
+  for (let h = OPEN_HOUR; h <= LAST_START_HOUR; h++) {
+    for (const mm of ["00", "30"]) {
+      if (h === LAST_START_HOUR && mm === "30") continue;
+      const v = `${pad(h)}:${mm}`;
+      if (taken.has(v)) continue;                       // already booked
+      if (isToday && h * 60 + Number(mm) <= nowMins) continue; // already passed today
+      opts.push(v);
+    }
+  }
+
+  if (!opts.length) {
+    sel.innerHTML = '<option value="">No times left on this day</option>';
+    sel.disabled = true;
+    $("timeHint").textContent = "That day is fully booked — please choose another date.";
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML =
+    '<option value="">Select a time…</option>' +
+    opts.map((v) => `<option value="${v}">${v}</option>`).join("");
+  $("timeHint").textContent = "Times already booked on your chosen day won't appear here.";
 }
 
 /* ---- Live summary ---- */
 function updateSummary() {
-  $("sExp").textContent = state.exp ? `${state.exp.name}` : "—";
-  $("sDate").textContent = prettyDate(state.date);
+  $("sExp").textContent = state.exp ? state.exp.name : "—";
+  $("sDate").textContent = state.date ? prettyDate(state.date) : "—";
   $("sTime").textContent = state.time || "—";
   $("sLoc").textContent = state.location || "—";
   $("sPeople").textContent = state.people ? `${state.people} ${state.people === "1" ? "person" : "people"}` : "—";
@@ -113,9 +204,10 @@ function updateSummary() {
 /* ---- Validation ---- */
 function validate() {
   if (!state.exp) return "Please choose a session.";
-  if (!state.date) return "Please choose a date.";
+  if (!state.date) return "Please choose a date from the calendar.";
   if (BLOCKED.has(state.date)) return "Sorry, we're closed on that date — please pick another day.";
   if (!state.time) return "Please choose a start time.";
+  if (BOOKED[state.date] && BOOKED[state.date].has(state.time)) return "Sorry, that start time has just been taken — please choose another.";
   if (!state.location) return "Please choose a pick-up location.";
   if (SWAN_LAKESIDE_ONLY.includes(state.exp.id) && state.location === "Fell Foot")
     return "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only. Please choose one of those pick-up points.";
@@ -138,7 +230,7 @@ function showError(msg) {
   box.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-/* ---- Submit -> create Stripe Checkout session -> redirect ---- */
+/* ---- Submit -> Stripe Checkout ---- */
 async function handleSubmit(e) {
   e.preventDefault();
   showError(null);
@@ -170,45 +262,25 @@ async function handleSubmit(e) {
     });
     const data = await res.json();
     if (!res.ok || !data.url) throw new Error(data.error || "Could not start checkout.");
-    window.location.href = data.url; // Stripe-hosted checkout
+    window.location.href = data.url;
   } catch (e2) {
-    showError(
-      e2.message +
-        " If this keeps happening, please call us on 07826 551 503 and we'll book you in directly."
-    );
+    showError(e2.message + " If this keeps happening, please call us on 07826 551 503 and we'll book you in directly.");
     btn.disabled = false;
     btn.textContent = original;
   }
 }
 
-/* ---- React to a chosen date (block holidays) ---- */
-function onDateChange(value) {
-  state.date = value;
-  const hint = $("dateHint");
-  if (value && BLOCKED.has(value)) {
-    hint.textContent = "We're closed on that date — please choose another day.";
-    hint.style.color = "#d6453c";
-  } else {
-    hint.textContent = "Sessions run during daylight hours, weather permitting.";
-    hint.style.color = "";
-  }
-  updateSummary();
-}
-
 /* ---- Wire up ---- */
 document.addEventListener("DOMContentLoaded", () => {
   renderExperiences();
-  renderTimes();
-  setDateLimits();
-  loadBlockedDates();
+  renderCalendar();
+  loadAvailability();
 
-  $("date").addEventListener("change", (e) => onDateChange(e.target.value));
   $("time").addEventListener("change", (e) => { state.time = e.target.value; updateSummary(); });
   $("location").addEventListener("change", (e) => { state.location = e.target.value; updateSummary(); });
   $("people").addEventListener("change", (e) => { state.people = e.target.value; updateSummary(); });
   $("bookingForm").addEventListener("submit", handleSubmit);
 
-  // Deep link e.g. book.html?exp=3-hour preselects a session
   const wanted = new URLSearchParams(location.search).get("exp");
   if (wanted) {
     const el = document.querySelector(`.exp-option[data-id="${wanted}"]`);
