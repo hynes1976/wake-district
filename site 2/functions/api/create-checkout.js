@@ -10,19 +10,20 @@
    Required environment variable (set in Cloudflare dashboard):
      STRIPE_SECRET_KEY   e.g. sk_live_... (use sk_test_... while testing)
 
-   Optional binding (for holiday blocking):
-     WD_KV   a KV namespace holding key "blocked_dates" (JSON array)
+   Optional binding (for holiday blocking + availability):
+     WD_KV   a KV namespace ("blocked_dates" + "booked_slots")
 
    No npm packages or build step needed — talks to Stripe over HTTPS.
    ============================================================ */
 
-// Source of truth for prices (GBP). Keep in sync with assets/js/booking.js.
+// Source of truth for prices (GBP) and session length (hours).
+// Keep prices in sync with assets/js/booking.js.
 const PRICES = {
-  "1-hour":   { name: "1 Hour Time Slot — Wake District", amount: 12000 },
-  "2-hour":   { name: "2 Hour Time Slot — Wake District", amount: 22000 },
-  "3-hour":   { name: "3 Hour Time Slot — Wake District", amount: 30000 },
-  "half-day": { name: "Half Day (4 hours) — Wake District", amount: 38000 },
-  "full-day": { name: "Full Day (8 hours) — Wake District", amount: 70000 },
+  "1-hour":   { name: "1 Hour Time Slot — Wake District", amount: 12000, hours: 1 },
+  "2-hour":   { name: "2 Hour Time Slot — Wake District", amount: 22000, hours: 2 },
+  "3-hour":   { name: "3 Hour Time Slot — Wake District", amount: 30000, hours: 3 },
+  "half-day": { name: "Half Day (4 hours) — Wake District", amount: 38000, hours: 4 },
+  "full-day": { name: "Full Day (8 hours) — Wake District", amount: 70000, hours: 8 },
 };
 
 const VALID_LOCATIONS = [
@@ -38,14 +39,13 @@ const json = (obj, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-async function isBlocked(env, date) {
+async function kvJson(env, key) {
   try {
-    if (!env.WD_KV) return false;
-    const raw = await env.WD_KV.get("blocked_dates");
-    if (!raw) return false;
-    return JSON.parse(raw).includes(date);
+    if (!env.WD_KV) return null;
+    const raw = await env.WD_KV.get(key);
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -81,8 +81,15 @@ export async function onRequestPost({ request, env }) {
   }
 
   // Holiday / closed-day check
-  if (await isBlocked(env, date)) {
+  const blocked = (await kvJson(env, "blocked_dates")) || [];
+  if (blocked.includes(date)) {
     return json({ error: "Sorry, we're closed on that date — please pick another day." }, 400);
+  }
+
+  // Double-booking guard: is this start slot already taken?
+  const bookedSlots = (await kvJson(env, "booked_slots")) || {};
+  if (Array.isArray(bookedSlots[date]) && bookedSlots[date].includes(time)) {
+    return json({ error: "Sorry, that start time has just been booked — please choose another." }, 409);
   }
 
   const origin = new URL(request.url).origin;
@@ -106,11 +113,12 @@ export async function onRequestPost({ request, env }) {
     `${niceDate} at ${time} · ${ppl} ${ppl === 1 ? "person" : "people"} · Pick-up: ${location}`
   );
 
-  // Everything we want to see on the booking, saved against the payment
+  // Saved against the payment, and used by the webhook to mark the slot booked
   const meta = {
     experience: item.name,
     date,
     time,
+    hours: String(item.hours),
     pickup_location: location,
     people: String(ppl),
     customer_name: name,
@@ -143,7 +151,6 @@ export async function onRequestPost({ request, env }) {
   return json({ url: session.url });
 }
 
-// Friendly response if someone opens the URL directly in a browser (GET)
 export async function onRequestGet() {
   return json({ error: "Send a POST request to create a checkout." }, 405);
 }
