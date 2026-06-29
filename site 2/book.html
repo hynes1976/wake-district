@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Book Now | Wake District</title>
+  <meta name="description" content="Book your watersports time slot on Lake Windermere with Wake District. Secure online payment by card." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body data-page="book">
+
+  <section class="section section--alt" style="padding-top:48px">
+    <div class="container">
+      <div class="section-head" style="margin-bottom:34px">
+        <p class="eyebrow">Book your experience</p>
+        <h2>Reserve your time slot</h2>
+        <p>Maximum of 6 people on the boat. You're booking the time slot — no matter your group size, just let us know how many of you are coming. Got a question? <a href="contact.html">Get in touch</a>.</p>
+      </div>
+
+      <form id="bookingForm" novalidate>
+        <div class="booking-wrap">
+          <!-- LEFT: form -->
+          <div class="card">
+            <div class="form-error" id="formError"></div>
+
+            <h3 style="margin-bottom:16px">1. Choose your session</h3>
+            <div class="exp-select" id="expSelect"><!-- options injected by booking.js --></div>
+
+            <h3 style="margin:28px 0 16px">2. Date &amp; start time</h3>
+            <div class="form-row cols-2">
+              <div>
+                <label for="date">Date <span class="req">*</span></label>
+                <input id="date" name="date" type="date" required />
+              </div>
+              <div>
+                <label for="time">Start time <span class="req">*</span></label>
+                <select id="time" name="time" required>
+                  <option value="">Select a time…</option>
+                </select>
+                <p class="field-hint">Sessions run during daylight hours, weather permitting.</p>
+              </div>
+            </div>
+
+            <h3 style="margin:14px 0 16px">3. Your group</h3>
+            <div class="form-row cols-2">
+              <div>
+                <label for="people">Number of people <span class="req">*</span></label>
+                <select id="people" name="people" required>
+                  <option value="">Select…</option>
+                  <option>1</option><option>2</option><option>3</option>
+                  <option>4</option><option>5</option><option>6</option>
+                </select>
+              </div>
+              <div>
+                <label for="phone">Mobile number <span class="req">*</span></label>
+                <input id="phone" name="phone" type="tel" required placeholder="07…" />
+              </div>
+            </div>
+
+            <h3 style="margin:14px 0 16px">4. Your details</h3>
+            <div class="form-row cols-2">
+              <div><label for="name">Full name <span class="req">*</span></label><input id="name" name="name" required /></div>
+              <div><label for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" required /></div>
+            </div>
+            <div class="form-row">
+              <div>
+                <label for="notes">Anything we should know? <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+                <textarea id="notes" name="notes" placeholder="Experience level, occasion, preferred pick-up point…"></textarea>
+              </div>
+            </div>
+
+            <label class="exp-option" style="cursor:pointer;margin-top:4px">
+              <input type="checkbox" id="agree" required />
+              <span class="meta"><small>I have read and agree to the <a href="terms.html" target="_blank">Terms &amp; Conditions</a>.</small></span>
+            </label>
+          </div>
+
+          <!-- RIGHT: summary -->
+          <div class="card summary">
+            <h3>Your booking</h3>
+            <div class="summary-line"><span>Experience</span><span id="sExp">—</span></div>
+            <div class="summary-line"><span>Date</span><span id="sDate">—</span></div>
+            <div class="summary-line"><span>Start time</span><span id="sTime">—</span></div>
+            <div class="summary-line"><span>Group size</span><span id="sPeople">—</span></div>
+            <div class="summary-total">
+              <span class="lbl">Total</span>
+              <span class="val" id="sTotal">£0</span>
+            </div>
+            <button type="submit" class="btn btn--primary btn--block btn--lg" id="payBtn" style="margin-top:20px">
+              Pay &amp; Confirm Booking
+            </button>
+            <div class="trust">🔒 Secure card payment powered by Stripe</div>
+            <p class="field-hint" style="margin-top:14px">You'll be redirected to a secure Stripe checkout page to complete payment. A confirmation email is sent automatically once paid.</p>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/booking.js"></script>
+</body>
+</html>

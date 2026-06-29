@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contact | Wake District</title>
+  <meta name="description" content="Get in touch with Wake District — questions or help booking your watersports session on Lake Windermere." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body data-page="contact">
+
+  <section class="section section--alt" style="padding-top:54px">
+    <div class="container">
+      <div class="section-head" style="margin-bottom:36px">
+        <p class="eyebrow">Say hello</p>
+        <h2>Want to get in touch?</h2>
+        <p>Got questions or need a hand booking? We're here to help — give us a call between 9am and 5pm.</p>
+      </div>
+
+      <div class="contact-grid">
+        <div class="contact-info">
+          <div class="ci-item">
+            <div class="ic">✉️</div>
+            <div><h4>Email</h4><a href="mailto:info@wakedistrict.co.uk">info@wakedistrict.co.uk</a></div>
+          </div>
+          <div class="ci-item">
+            <div class="ic">📞</div>
+            <div><h4>Phone</h4><a href="tel:07826551503">07826 551 503</a><br><a href="tel:07758892222">07758 892222</a></div>
+          </div>
+          <div class="ci-item">
+            <div class="ic">📍</div>
+            <div><h4>Pick-up locations</h4><p>The Swan Hotel &amp; Spa, Lakeside (Newby Bridge, LA12 8NB)<br>Fell Foot (LA12 8NN)<br>Lakeside Hotel &amp; Spa (LA12 8AT)</p></div>
+          </div>
+          <div class="ci-item">
+            <div class="ic">🕘</div>
+            <div><h4>Hours</h4><p>Phone lines 9am – 5pm. Sessions run throughout the season, daylight hours.</p></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="form-success" id="contactSuccess">Thanks for submitting! A member of our team will be in touch shortly.</div>
+          <!--
+            This form posts to Formspree (free tier) so you receive an email for every enquiry,
+            with no server to run. Replace the action URL with your own Formspree form ID.
+            See DEPLOYMENT-GUIDE.md, step 7.
+          -->
+          <form id="contactForm" action="https://formspree.io/f/your-form-id" method="POST">
+            <div class="form-row cols-2">
+              <div><label for="fname">First name <span class="req">*</span></label><input id="fname" name="first_name" required /></div>
+              <div><label for="lname">Last name <span class="req">*</span></label><input id="lname" name="last_name" required /></div>
+            </div>
+            <div class="form-row">
+              <div><label for="email">Email <span class="req">*</span></label><input id="email" type="email" name="email" required /></div>
+            </div>
+            <div class="form-row">
+              <div><label for="message">Message <span class="req">*</span></label><textarea id="message" name="message" required></textarea></div>
+            </div>
+            <button type="submit" class="btn btn--primary btn--block btn--lg">Send</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="assets/js/main.js"></script>
+  <script>
+    // Submit the contact form in the background so the visitor stays on the page.
+    const cf = document.getElementById("contactForm");
+    cf.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const res = await fetch(cf.action, { method: "POST", body: new FormData(cf), headers: { Accept: "application/json" } });
+        if (res.ok) { cf.reset(); document.getElementById("contactSuccess").classList.add("show"); }
+        else { window.location.href = "mailto:info@wakedistrict.co.uk"; }
+      } catch { window.location.href = "mailto:info@wakedistrict.co.uk"; }
+    });
+  </script>
+</body>
+</html>
