@@ -34,17 +34,31 @@
               <div>
                 <label for="date">Date <span class="req">*</span></label>
                 <input id="date" name="date" type="date" required />
+                <p class="field-hint" id="dateHint">Sessions run during daylight hours, weather permitting.</p>
               </div>
               <div>
                 <label for="time">Start time <span class="req">*</span></label>
                 <select id="time" name="time" required>
                   <option value="">Select a time…</option>
                 </select>
-                <p class="field-hint">Sessions run during daylight hours, weather permitting.</p>
               </div>
             </div>
 
-            <h3 style="margin:14px 0 16px">3. Your group</h3>
+            <h3 style="margin:14px 0 16px">3. Pick-up location</h3>
+            <div class="form-row">
+              <div>
+                <label for="location">Where would you like to be picked up? <span class="req">*</span></label>
+                <select id="location" name="location" required>
+                  <option value="">Select a pick-up point…</option>
+                  <option value="The Swan Hotel &amp; Spa, Lakeside">The Swan Hotel &amp; Spa, Lakeside</option>
+                  <option value="Fell Foot">Fell Foot</option>
+                  <option value="Lakeside Hotel &amp; Spa">Lakeside Hotel &amp; Spa</option>
+                </select>
+                <p class="field-hint">Half-day and full-day sessions run from The Swan Hotel &amp; Spa / Lakeside only.</p>
+              </div>
+            </div>
+
+            <h3 style="margin:14px 0 16px">4. Your group</h3>
             <div class="form-row cols-2">
               <div>
                 <label for="people">Number of people <span class="req">*</span></label>
@@ -55,20 +69,21 @@
                 </select>
               </div>
               <div>
-                <label for="phone">Mobile number <span class="req">*</span></label>
-                <input id="phone" name="phone" type="tel" required placeholder="07…" />
+                <label for="phone">Your mobile number <span class="req">*</span></label>
+                <input id="phone" name="phone" type="tel" required placeholder="Your mobile, e.g. 07…" autocomplete="tel" />
+                <p class="field-hint">We'll use this to contact you about your booking.</p>
               </div>
             </div>
 
-            <h3 style="margin:14px 0 16px">4. Your details</h3>
+            <h3 style="margin:14px 0 16px">5. Your details</h3>
             <div class="form-row cols-2">
-              <div><label for="name">Full name <span class="req">*</span></label><input id="name" name="name" required /></div>
-              <div><label for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" required /></div>
+              <div><label for="name">Full name <span class="req">*</span></label><input id="name" name="name" required autocomplete="name" /></div>
+              <div><label for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" required autocomplete="email" /></div>
             </div>
             <div class="form-row">
               <div>
                 <label for="notes">Anything we should know? <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-                <textarea id="notes" name="notes" placeholder="Experience level, occasion, preferred pick-up point…"></textarea>
+                <textarea id="notes" name="notes" placeholder="Experience level, occasion, anything else…"></textarea>
               </div>
             </div>
 
@@ -84,6 +99,7 @@
             <div class="summary-line"><span>Experience</span><span id="sExp">—</span></div>
             <div class="summary-line"><span>Date</span><span id="sDate">—</span></div>
             <div class="summary-line"><span>Start time</span><span id="sTime">—</span></div>
+            <div class="summary-line"><span>Pick-up</span><span id="sLoc">—</span></div>
             <div class="summary-line"><span>Group size</span><span id="sPeople">—</span></div>
             <div class="summary-total">
               <span class="lbl">Total</span>
@@ -92,7 +108,7 @@
             <button type="submit" class="btn btn--primary btn--block btn--lg" id="payBtn" style="margin-top:20px">
               Pay &amp; Confirm Booking
             </button>
-            <div class="trust">🔒 Secure card payment powered by Stripe</div>
+            <div class="trust"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:2px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure card payment powered by Stripe</div>
             <p class="field-hint" style="margin-top:14px">You'll be redirected to a secure Stripe checkout page to complete payment. A confirmation email is sent automatically once paid.</p>
           </div>
         </div>

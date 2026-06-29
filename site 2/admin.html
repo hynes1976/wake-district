@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Wake District — Manage Availability</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <style>
+    .admin-wrap { max-width: 620px; margin: 0 auto; }
+    .blocked-list { list-style: none; display: grid; gap: 10px; margin-top: 8px; }
+    .blocked-list li {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #fbfdfe; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+      padding: 12px 16px;
+    }
+    .blocked-list li strong { color: var(--navy); }
+    .blocked-list .none { color: var(--muted); border-style: dashed; justify-content: center; }
+    .btn--sm { padding: 8px 16px; font-size: .85rem; }
+    .btn--danger { background: #fdecea; color: #b3261e; }
+    .btn--danger:hover { background: #f9d9d5; color: #b3261e; }
+    .admin-msg { font-size: .9rem; margin-top: 12px; }
+    .admin-msg.err { color: #b3261e; }
+    .admin-msg.ok { color: #1d6b3f; }
+  </style>
+</head>
+<body>
+  <section class="section section--alt" style="padding-top:54px; min-height:80vh;">
+    <div class="container admin-wrap">
+      <div class="section-head" style="margin-bottom:26px">
+        <p class="eyebrow">Staff only</p>
+        <h2>Manage availability</h2>
+        <p>Block out the days you're away or closed. Customers won't be able to book a blocked day.</p>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="card" id="loginCard">
+        <div class="form-row">
+          <div>
+            <label for="pw">Admin password</label>
+            <input id="pw" type="password" placeholder="Enter your admin password" autocomplete="current-password" />
+          </div>
+        </div>
+        <button class="btn btn--primary btn--block" id="unlockBtn">Unlock</button>
+        <div class="admin-msg err" id="loginMsg" style="display:none"></div>
+      </div>
+
+      <!-- PANEL -->
+      <div id="panel" style="display:none">
+        <div class="card" style="margin-bottom:22px">
+          <h3 style="margin-bottom:14px">Block a day</h3>
+          <div class="form-row cols-2" style="align-items:end">
+            <div>
+              <label for="blockDate">Date to block</label>
+              <input id="blockDate" type="date" />
+            </div>
+            <div>
+              <button class="btn btn--dark btn--block" id="addBtn">Block this day</button>
+            </div>
+          </div>
+          <div class="admin-msg" id="actionMsg" style="display:none"></div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:6px">Currently blocked days</h3>
+          <ul class="blocked-list" id="list"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let PW = "";
+
+    const fmt = (iso) =>
+      new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      });
+
+    async function call(action, date) {
+      const res = await fetch("/api/admin-block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: PW, action, date }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      return data.dates || [];
+    }
+
+    function render(dates) {
+      const list = $("list");
+      if (!dates.length) {
+        list.innerHTML = '<li class="none">No days are currently blocked.</li>';
+        return;
+      }
+      list.innerHTML = dates
+        .map(
+          (d) => `<li><strong>${fmt(d)}</strong>
+            <button class="btn btn--danger btn--sm" data-d="${d}">Unblock</button></li>`
+        )
+        .join("");
+      list.querySelectorAll("button[data-d]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          b.disabled = true;
+          try { render(await call("remove", b.dataset.d)); }
+          catch (e) { msg("actionMsg", e.message, "err"); b.disabled = false; }
+        })
+      );
+    }
+
+    function msg(id, text, kind) {
+      const el = $(id);
+      el.textContent = text;
+      el.className = "admin-msg " + (kind || "");
+      el.style.display = text ? "block" : "none";
+    }
+
+    $("unlockBtn").addEventListener("click", async () => {
+      PW = $("pw").value;
+      msg("loginMsg", "", "");
+      try {
+        const dates = await call("list");
+        $("loginCard").style.display = "none";
+        $("panel").style.display = "block";
+        render(dates);
+      } catch (e) {
+        PW = "";
+        msg("loginMsg", e.message, "err");
+        $("loginMsg").style.display = "block";
+      }
+    });
+    $("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("unlockBtn").click(); });
+
+    $("addBtn").addEventListener("click", async () => {
+      const date = $("blockDate").value;
+      if (!date) return msg("actionMsg", "Pick a date first.", "err");
+      try {
+        render(await call("add", date));
+        msg("actionMsg", "Blocked " + fmt(date) + ".", "ok");
+        $("blockDate").value = "";
+      } catch (e) { msg("actionMsg", e.message, "err"); }
+    });
+
+    // Don't let admins block dates in the past
+    $("blockDate").min = new Date().toISOString().split("T")[0];
+  </script>
+</body>
+</html>
