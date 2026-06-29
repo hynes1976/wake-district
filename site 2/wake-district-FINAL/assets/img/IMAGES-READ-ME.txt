@@ -1,0 +1,30 @@
+WAKE DISTRICT — IMAGES TO ADD
+=============================
+
+The site works right now with placeholder gradients. To make it look exactly
+like your brand, drop your own photos into THIS folder using the exact
+filenames below. The site picks them up automatically — no code changes.
+
+You already own all of these on your current Wix site. In Wix, open each
+image, choose "Download" (or right-click > Save image), then rename to match.
+
+Recommended size: roughly 1400–1600px wide, JPG, saved at good quality.
+
+FILENAME                 WHERE IT SHOWS
+--------                 --------------
+logo-horizontal.png      The logo in the top navigation bar (transparent PNG)
+hero.jpg                 Big background image on the Home page
+about-hero.jpg           Banner on the About page
+experiences-hero.jpg     Banner on the Experiences page
+about-1.jpg              Photo beside the "About Us" text
+wakeboarding.jpg         Wake boarding card / section
+wakesurfing.jpg          Wake surfing card / section
+wakefoiling.jpg          Wake foiling card / section
+kneeboarding.jpg         Knee boarding card / section
+groups.jpg               Groups & Parties card on the Home page
+
+TIP: keep file sizes reasonable (under ~400KB each) so pages load fast.
+You can shrink them free at https://squoosh.app before saving.
+
+If a file is missing, the site simply shows a tasteful blue gradient in its
+place — nothing breaks.
