@@ -10,6 +10,9 @@
    Required environment variable (set in Cloudflare dashboard):
      STRIPE_SECRET_KEY   e.g. sk_live_... (use sk_test_... while testing)
 
+   Optional binding (for holiday blocking):
+     WD_KV   a KV namespace holding key "blocked_dates" (JSON array)
+
    No npm packages or build step needed — talks to Stripe over HTTPS.
    ============================================================ */
 
@@ -22,11 +25,29 @@ const PRICES = {
   "full-day": { name: "Full Day (8 hours) — Wake District", amount: 70000 },
 };
 
+const VALID_LOCATIONS = [
+  "The Swan Hotel & Spa, Lakeside",
+  "Fell Foot",
+  "Lakeside Hotel & Spa",
+];
+const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
+
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+async function isBlocked(env, date) {
+  try {
+    if (!env.WD_KV) return false;
+    const raw = await env.WD_KV.get("blocked_dates");
+    if (!raw) return false;
+    return JSON.parse(raw).includes(date);
+  } catch {
+    return false;
+  }
+}
 
 export async function onRequestPost({ request, env }) {
   if (!env.STRIPE_SECRET_KEY) {
@@ -40,13 +61,16 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Invalid request." }, 400);
   }
 
-  const { experienceId, date, time, people, name, email, phone, notes } = body || {};
+  const { experienceId, date, time, location, people, name, email, phone, notes } = body || {};
 
   // --- Server-side validation ---
   const item = PRICES[experienceId];
   if (!item) return json({ error: "Unknown session type." }, 400);
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "Invalid date." }, 400);
   if (!time || !/^\d{2}:\d{2}$/.test(time)) return json({ error: "Invalid time." }, 400);
+  if (!VALID_LOCATIONS.includes(location)) return json({ error: "Please choose a valid pick-up location." }, 400);
+  if (SWAN_LAKESIDE_ONLY.includes(experienceId) && location === "Fell Foot")
+    return json({ error: "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only." }, 400);
   const ppl = parseInt(people, 10);
   if (!(ppl >= 1 && ppl <= 6)) return json({ error: "Group size must be 1–6." }, 400);
   if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Invalid contact details." }, 400);
@@ -54,6 +78,11 @@ export async function onRequestPost({ request, env }) {
   // Don't allow booking in the past
   if (new Date(`${date}T${time}:00`) < new Date()) {
     return json({ error: "That date and time has already passed." }, 400);
+  }
+
+  // Holiday / closed-day check
+  if (await isBlocked(env, date)) {
+    return json({ error: "Sorry, we're closed on that date — please pick another day." }, 400);
   }
 
   const origin = new URL(request.url).origin;
@@ -74,7 +103,7 @@ export async function onRequestPost({ request, env }) {
   form.set("line_items[0][price_data][product_data][name]", item.name);
   form.set(
     "line_items[0][price_data][product_data][description]",
-    `${niceDate} at ${time} · ${ppl} ${ppl === 1 ? "person" : "people"}`
+    `${niceDate} at ${time} · ${ppl} ${ppl === 1 ? "person" : "people"} · Pick-up: ${location}`
   );
 
   // Everything we want to see on the booking, saved against the payment
@@ -82,6 +111,7 @@ export async function onRequestPost({ request, env }) {
     experience: item.name,
     date,
     time,
+    pickup_location: location,
     people: String(ppl),
     customer_name: name,
     customer_email: email,
