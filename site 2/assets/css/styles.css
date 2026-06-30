@@ -324,3 +324,38 @@ textarea { resize: vertical; min-height: 96px; }
 .lg-cl { background: #fdecea; border: 1.5px solid #f3c4be; }
 .selected-date { font-weight: 600; color: var(--navy); margin-top: 12px; font-size: .95rem; }
 .selected-date.empty { color: var(--muted); font-weight: 500; }
+
+/* ---------- Bookings on a chosen day ---------- */
+.day-bookings { margin-top: 12px; }
+.db-empty { color: var(--muted); font-size: .9rem; margin: 0; }
+.db-title { font-weight: 600; color: var(--navy); font-size: .92rem; margin: 0 0 8px; }
+.db-list { list-style: none; display: grid; gap: 8px; margin: 0; padding: 0; }
+.db-list li { display: flex; align-items: center; gap: 12px; background: rgba(232,161,58,.10); border: 1px solid rgba(232,161,58,.35); border-radius: var(--radius-sm); padding: 9px 13px; }
+.db-time { font-weight: 700; color: var(--navy); font-variant-numeric: tabular-nums; }
+.db-exp { color: var(--muted); font-size: .9rem; }
+
+/* ---------- Reviews carousel ---------- */
+.reviews { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+.rev-viewport { flex: 1; text-align: center; min-height: 180px; display: flex; align-items: center; justify-content: center; }
+.rev-slide { display: none; width: 100%; }
+.rev-slide.is-active { display: block; animation: revFade .5s ease; }
+@keyframes revFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.rev-slide .stars { color: #ffd166; font-size: 1.3rem; letter-spacing: 3px; margin-bottom: 16px; }
+.rev-slide blockquote { color: #fff; font-size: clamp(1.1rem, 2.2vw, 1.5rem); font-weight: 500; line-height: 1.5; max-width: 720px; margin: 0 auto; }
+.rev-slide .cite { margin-top: 18px; color: var(--sky); font-weight: 600; letter-spacing: .03em; }
+.rev-nav { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer; display: grid; place-items: center; transition: background .15s; }
+.rev-nav:hover { background: rgba(255,255,255,.22); }
+.rev-dots { display: flex; gap: 9px; justify-content: center; margin-top: 24px; }
+.rev-dots button { width: 9px; height: 9px; border-radius: 50%; border: 0; background: rgba(255,255,255,.35); cursor: pointer; padding: 0; transition: background .15s; }
+.rev-dots button.is-active { background: var(--aqua); }
+.reviews-cta { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 32px; }
+.ta-badge { background: #fff; padding: 8px 14px; border-radius: 10px; line-height: 0; }
+@media (max-width: 600px) { .rev-nav { width: 38px; height: 38px; } }
+
+/* ---------- Footer social links ---------- */
+.footer-social { display: flex; gap: 18px; margin-top: 16px; }
+.footer-social a { display: inline-flex; align-items: center; gap: 7px; color: #b9d6df; font-size: .92rem; font-weight: 500; }
+.footer-social a:hover { color: var(--sky); }
+
+/* ---------- Footer logo ---------- */
+.footer-logo { height: 64px; width: auto; margin-bottom: 14px; }
