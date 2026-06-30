@@ -75,9 +75,10 @@ export async function onRequestPost({ request, env }) {
   if (!(ppl >= 1 && ppl <= 6)) return json({ error: "Group size must be 1–6." }, 400);
   if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Invalid contact details." }, 400);
 
-  // Don't allow booking in the past
-  if (new Date(`${date}T${time}:00`) < new Date()) {
-    return json({ error: "That date and time has already passed." }, 400);
+  // Require at least 1 hour's notice (gives us time to get to the customer)
+  const LEAD_MS = 60 * 60 * 1000;
+  if (new Date(`${date}T${time}:00`).getTime() < Date.now() + LEAD_MS) {
+    return json({ error: "Bookings need at least 1 hour's notice — please choose a later time." }, 400);
   }
 
   // Holiday / closed-day check
