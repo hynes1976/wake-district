@@ -27,6 +27,7 @@ const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
 const OPEN_HOUR = 8;
 const LAST_START_HOUR = 18;
 const MONTHS_AHEAD = 12;
+const LEAD_MINUTES = 60; // bookings must be at least this far ahead (gives us time to get to you)
 
 const gbp = (n) => "£" + n.toLocaleString("en-GB");
 const $ = (id) => document.getElementById(id);
@@ -36,6 +37,7 @@ const isoOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const state = { exp: null, date: "", time: "", location: "", people: "" };
 let BLOCKED = new Set();         // holiday / closed dates "YYYY-MM-DD"
 let BOOKED = {};                 // { "YYYY-MM-DD": Set("HH:MM" occupied start slots) }
+let BOOKINGS = {};               // { "YYYY-MM-DD": [ {time, hours, experience} ] } for display
 
 const today = new Date(); today.setHours(0, 0, 0, 0);
 const todayISO = isoOf(today.getFullYear(), today.getMonth(), today.getDate());
@@ -77,6 +79,7 @@ async function loadAvailability() {
       BOOKED = {};
       for (const [d, slots] of Object.entries(data.booked)) BOOKED[d] = new Set(slots);
     }
+    if (data.bookings && typeof data.bookings === "object") BOOKINGS = data.bookings;
   } catch {
     /* If the endpoint isn't set up yet, everything just shows as available. */
   }
@@ -156,8 +159,35 @@ function selectDate(iso) {
   $("selectedDate").textContent = "Selected: " + prettyDate(iso);
   $("selectedDate").classList.remove("empty");
   renderTimes(iso);
+  renderDayBookings(iso);
   renderCalendar();
   updateSummary();
+}
+
+/* ---- Add hours to a HH:MM time -> HH:MM ---- */
+function addTime(time, hours) {
+  const [h, m] = time.split(":").map(Number);
+  const t = h * 60 + m + Math.round(hours * 60);
+  return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+}
+
+/* ---- Show the existing bookings for the chosen day (no personal data) ---- */
+function renderDayBookings(iso) {
+  const el = $("dayBookings");
+  const list = BOOKINGS[iso] || [];
+  if (!list.length) {
+    el.innerHTML = '<p class="db-empty">No bookings yet on this day — all start times are available.</p>';
+    return;
+  }
+  el.innerHTML =
+    '<p class="db-title">Already booked on this day:</p><ul class="db-list">' +
+    list
+      .map(
+        (b) =>
+          `<li><span class="db-time">${b.time}–${addTime(b.time, b.hours)}</span><span class="db-exp">${b.experience}</span></li>`
+      )
+      .join("") +
+    "</ul>";
 }
 
 /* ---- Start times for the chosen day (minus what's taken) ---- */
@@ -173,7 +203,7 @@ function renderTimes(iso) {
       if (h === LAST_START_HOUR && mm === "30") continue;
       const v = `${pad(h)}:${mm}`;
       if (taken.has(v)) continue;                       // already booked
-      if (isToday && h * 60 + Number(mm) <= nowMins) continue; // already passed today
+      if (isToday && h * 60 + Number(mm) < nowMins + LEAD_MINUTES) continue; // need 1 hour's notice
       opts.push(v);
     }
   }
@@ -188,7 +218,7 @@ function renderTimes(iso) {
   sel.innerHTML =
     '<option value="">Select a time…</option>' +
     opts.map((v) => `<option value="${v}">${v}</option>`).join("");
-  $("timeHint").textContent = "Times already booked on your chosen day won't appear here.";
+  $("timeHint").textContent = "Times already booked, or less than an hour away, won't appear here.";
 }
 
 /* ---- Live summary ---- */
