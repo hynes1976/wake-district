@@ -15,6 +15,19 @@ const NAV = [
 // automatically; until then a clean text logo shows instead.
 const LOGO_SRC = "assets/img/logo-horizontal.png";
 
+// Cloudflare Web Analytics (free): paste the token from your Cloudflare
+// dashboard (Web Analytics → your site → the value after "token":) between
+// the quotes below. Leave blank to disable. See MONITORING-APP-SETUP.md.
+const CF_ANALYTICS_TOKEN = "";
+function loadCloudflareAnalytics() {
+  if (!CF_ANALYTICS_TOKEN) return;
+  const s = document.createElement("script");
+  s.defer = true;
+  s.src = "https://static.cloudflareinsights.com/beacon.min.js";
+  s.setAttribute("data-cf-beacon", JSON.stringify({ token: CF_ANALYTICS_TOKEN }));
+  document.head.appendChild(s);
+}
+
 function brandMarkup() {
   return `
     <a class="brand" href="index.html" aria-label="Wake District home">
@@ -130,8 +143,29 @@ function initReviews() {
   go(0); restart();
 }
 
+// Quietly tell the site when a page is opened, so the owner's phone can
+// be pinged (see functions/api/notify-visit.js). Fails silently and never
+// blocks the page.
+function trackVisit() {
+  try {
+    let vid = localStorage.getItem("wd_vid");
+    if (!vid) {
+      vid = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+      localStorage.setItem("wd_vid", vid);
+    }
+    fetch("/api/notify-visit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ vid, path: location.pathname }),
+    }).catch(() => {});
+  } catch (e) { /* ignore */ }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   buildHeader();
   buildFooter();
   initReviews();
+  trackVisit();
+  loadCloudflareAnalytics();
 });
