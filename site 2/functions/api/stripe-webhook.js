@@ -82,6 +82,30 @@ async function recordBooking(env, m) {
   }
 }
 
+// Full booking record (incl. contact details) for the Owner Dashboard.
+// Kept private — only visible via the password-protected dashboard.
+async function recordBookingContact(env, m, amount) {
+  if (!env.WD_KV) return;
+  const raw = await env.WD_KV.get("booking_records");
+  const arr = raw ? JSON.parse(raw) : [];
+  arr.unshift({
+    created: new Date().toISOString(),
+    experience: (m.experience || "").replace(/\s*—\s*Wake District\s*$/, ""),
+    date: m.date || "",
+    time: m.time || "",
+    people: m.people || "",
+    pickup: m.pickup_location || "",
+    name: m.customer_name || "",
+    email: m.customer_email || "",
+    phone: m.customer_phone || "",
+    notes: m.notes || "",
+    discount: m.discount_code ? `${m.discount_code} (-${m.discount_percent}%)` : "",
+    paid: amount || "",
+  });
+  // Keep the most recent 300 to stay well within storage limits.
+  await env.WD_KV.put("booking_records", JSON.stringify(arr.slice(0, 300)));
+}
+
 function prettyDate(iso) {
   try {
     return new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
@@ -151,8 +175,13 @@ export async function onRequestPost({ request, env }) {
   const m = s.metadata || {};
   if (!m.customer_email) m.customer_email = s.customer_email || "";
 
+  const paidAmount = (s.amount_total / 100).toLocaleString("en-GB", { style: "currency", currency: "GBP" });
+
   // 1. Mark the slot (+ buffer) booked, for the availability calendar
   try { await recordBooking(env, m); } catch (e) { /* don't fail the webhook on this */ }
+
+  // 1b. Save the full booking (with contact details) for the Owner Dashboard
+  try { await recordBookingContact(env, m, paidAmount); } catch (e) { /* best effort */ }
 
   // 2. Emails (only if Resend is configured)
   if (env.RESEND_API_KEY && env.FROM_EMAIL) {
