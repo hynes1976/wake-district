@@ -107,6 +107,7 @@ h1, h2, h3, h4 { font-family: var(--head); line-height: 1.15; color: var(--navy)
   content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 2px; background: var(--aqua); border-radius: 2px;
 }
 .nav-cta { display: flex; align-items: center; gap: 14px; }
+.nav-badge { height: 54px; width: auto; border-radius: 8px; display: block; }
 .nav-toggle { display: none; background: none; border: 0; cursor: pointer; padding: 8px; }
 .nav-toggle span { display: block; width: 24px; height: 2px; background: var(--navy); margin: 5px 0; transition: .2s; }
 
@@ -286,6 +287,7 @@ textarea { resize: vertical; min-height: 96px; }
 }
 @media (max-width: 760px) {
   .nav-links, .nav-cta .btn { display: none; }
+  .nav-badge { height: 40px; }
   .nav-toggle { display: block; }
   .nav.open .nav-links {
     display: flex; flex-direction: column; position: absolute; top: 96px; left: 0; right: 0;
@@ -350,6 +352,22 @@ textarea { resize: vertical; min-height: 96px; }
 .rev-dots button.is-active { background: var(--aqua); }
 .reviews-cta { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 32px; }
 .ta-badge { background: #fff; padding: 8px 14px; border-radius: 10px; line-height: 0; }
+.badges-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: center; }
+.google-badge {
+  display: inline-flex; align-items: center; gap: 8px; background: #fff;
+  padding: 10px 16px; border-radius: 10px; box-shadow: var(--shadow);
+  font-weight: 600; color: #3c4043; text-decoration: none; border: 1px solid var(--line);
+}
+.google-badge:hover { box-shadow: 0 6px 18px rgba(0,0,0,.12); }
+.google-badge svg { display: block; }
+.discount-box { margin: 14px 0 4px; }
+.discount-box label { display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px; font-size: .95rem; }
+.discount-row { display: flex; gap: 8px; }
+.discount-row input { flex: 1; text-transform: uppercase; }
+.discount-row .btn { white-space: nowrap; padding: 10px 16px; }
+.discount-msg { margin: 6px 0 0; font-size: .85rem; min-height: 1em; }
+.discount-msg.is-ok { color: #1a7f37; }
+.discount-msg.is-bad { color: #c0392b; }
 @media (max-width: 600px) { .rev-nav { width: 38px; height: 38px; } }
 
 /* ---------- Footer social links ---------- */
