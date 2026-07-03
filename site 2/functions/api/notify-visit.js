@@ -110,16 +110,6 @@ export async function onRequestPost({ request, env }) {
   return json({ ok: true, sent: true });
 }
 
-export async function onRequestGet({ env }) {
-  const t = env.NTFY_TOPIC || "";
-  return json({
-    ok: true,
-    info: "POST here to send a visit ping.",
-    // Temporary diagnostics (no full secret exposed):
-    topicConfigured: !!t,
-    topicLength: t.length,
-    topicLast4: t.slice(-4),
-    topicHasWhitespace: /\s/.test(t),
-    server: env.NTFY_SERVER || "https://ntfy.sh",
-  });
+export async function onRequestGet() {
+  return json({ ok: true, info: "POST here to send a visit ping." });
 }
