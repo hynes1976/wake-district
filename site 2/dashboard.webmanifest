@@ -1,0 +1,18 @@
+{
+  "name": "Wake District Owner Dashboard",
+  "short_name": "WD Dashboard",
+  "description": "Live visitors, traffic and bookings for Wake District.",
+  "start_url": "/dashboard.html",
+  "scope": "/dashboard.html",
+  "display": "standalone",
+  "background_color": "#082f49",
+  "theme_color": "#082f49",
+  "icons": [
+    {
+      "src": "assets/img/cumbria-tourism-member.jpg",
+      "sizes": "500x442",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

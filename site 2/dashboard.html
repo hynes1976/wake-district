@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Owner Dashboard | Wake District</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#082f49" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WD Dashboard" />
+  <link rel="manifest" href="dashboard.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/img/cumbria-tourism-member.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --navy:#082f49; --ink:#11242f; --muted:#5b7682; --line:#e5edf0;
+      --bg:#f2f7f9; --card:#fff; --teal:#17a2b8; --ok:#1a7f37; --bad:#c0392b;
+      --shadow:0 6px 24px rgba(8,47,73,.08);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Poppins,system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink);
+      padding:env(safe-area-inset-top) 0 40px;}
+    .wrap{max-width:720px;margin:0 auto;padding:0 16px}
+    header.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:18px 16px;position:sticky;top:0;background:var(--navy);color:#fff;z-index:5}
+    header.bar h1{font-size:1.05rem;margin:0;font-weight:700;letter-spacing:.2px}
+    .live-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);
+      padding:6px 12px;border-radius:999px;font-size:.85rem;font-weight:600}
+    .dot{width:9px;height:9px;border-radius:50%;background:#8fb6c2}
+    .dot.on{background:#38e08a;box-shadow:0 0 0 0 rgba(56,224,138,.6);animation:pulse 1.8s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(56,224,138,.55)}70%{box-shadow:0 0 0 10px rgba(56,224,138,0)}100%{box-shadow:0 0 0 0 rgba(56,224,138,0)}}
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:18px 0}
+    .stat{background:var(--card);border-radius:14px;padding:16px;box-shadow:var(--shadow);text-align:center}
+    .stat .n{font-size:2rem;font-weight:800;color:var(--navy);line-height:1}
+    .stat .l{font-size:.72rem;color:var(--muted);margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+    .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
+    .card h2{font-size:1rem;margin:0 0 12px;color:var(--navy);display:flex;align-items:center;gap:8px}
+    .muted{color:var(--muted)}
+    .empty{color:var(--muted);font-size:.9rem;padding:6px 0}
+    .lv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+    .lv:first-of-type{border-top:none}
+    .lv .where{font-weight:600}
+    .lv .meta{font-size:.82rem;color:var(--muted)}
+    .lv .ago{font-size:.8rem;color:var(--teal);font-weight:600;white-space:nowrap}
+    .bk{border-top:1px solid var(--line);padding:14px 0}
+    .bk:first-of-type{border-top:none}
+    .bk .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .bk .who{font-weight:700;color:var(--navy)}
+    .bk .exp{font-size:.85rem;color:var(--muted)}
+    .bk .paid{font-weight:700;color:var(--ok)}
+    .bk .row{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:8px;font-size:.9rem}
+    .bk a{color:var(--teal);text-decoration:none;font-weight:600}
+    .bk .notes{margin-top:6px;font-size:.86rem;color:var(--muted);font-style:italic}
+    .chip{display:inline-block;background:#eef5f7;color:var(--navy);border-radius:8px;padding:2px 8px;font-size:.8rem;font-weight:600}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;
+      font-family:inherit;font-weight:700;border-radius:10px;padding:12px 18px;font-size:.95rem}
+    .btn--primary{background:var(--teal);color:#fff}
+    .btn--ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}
+    .btn--block{width:100%}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+    .note{font-size:.82rem;color:var(--muted);margin-top:6px}
+    /* login */
+    .login{min-height:70vh;display:flex;align-items:center;justify-content:center}
+    .login .card{width:100%;max-width:380px;text-align:center}
+    .login input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:10px;font-size:1rem;font-family:inherit;margin:12px 0}
+    .err{color:var(--bad);font-size:.88rem;min-height:1.1em;margin-top:4px}
+    a.plain{color:var(--teal);font-weight:600;text-decoration:none}
+  </style>
+</head>
+<body>
+  <header class="bar">
+    <h1>Wake District · Dashboard</h1>
+    <span class="live-pill"><span class="dot" id="hdrDot"></span> <span id="hdrLive">—</span></span>
+  </header>
+
+  <div class="wrap">
+    <!-- LOGIN -->
+    <div id="loginView" class="login">
+      <div class="card">
+        <h2 style="justify-content:center">Owner login</h2>
+        <p class="muted" style="font-size:.9rem;margin:0">Enter your dashboard password (the same one you use for holiday dates).</p>
+        <input id="pw" type="password" placeholder="Password" autocomplete="current-password" />
+        <button class="btn btn--primary btn--block" id="loginBtn">Log in</button>
+        <div class="err" id="loginErr"></div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashView" style="display:none">
+      <div class="grid">
+        <div class="stat"><div class="n" id="sLive">0</div><div class="l">On site now</div></div>
+        <div class="stat"><div class="n" id="sToday">0</div><div class="l">Visitors today</div></div>
+        <div class="stat"><div class="n" id="s7">0</div><div class="l">Last 7 days</div></div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn--ghost" id="notifyBtn">🔔 Enable alerts</button>
+        <button class="btn btn--ghost" id="refreshBtn">↻ Refresh</button>
+        <button class="btn btn--ghost" id="logoutBtn">Log out</button>
+      </div>
+
+      <div class="card">
+        <h2>👀 On the site right now</h2>
+        <div id="liveList"><div class="empty">No one on the site at the moment.</div></div>
+        <p class="note">Updates automatically every 15 seconds. Locations are approximate (town/region).</p>
+      </div>
+
+      <div class="card">
+        <h2>📅 Recent bookings</h2>
+        <div id="bookingList"><div class="empty">No bookings yet.</div></div>
+      </div>
+
+      <div class="card">
+        <h2>📈 Traffic &amp; performance</h2>
+        <p class="muted" style="font-size:.9rem;margin:0 0 6px">Detailed graphs (page views over time, load speed, referrers) live in your Cloudflare account:</p>
+        <p style="margin:0"><a class="plain" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener">Open Cloudflare Web Analytics →</a></p>
+        <p class="note">Add this dashboard to your phone: open in your browser, tap Share → “Add to Home Screen”.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const KEY = "wd_dash_pw";
+    let timer = null;
+    let prevBookings = null, prevLiveCount = null, firstLoad = true;
+
+    function beep(){
+      try{
+        const a = new (window.AudioContext||window.webkitAudioContext)();
+        const o = a.createOscillator(), g = a.createGain();
+        o.connect(g); g.connect(a.destination);
+        o.type="sine"; o.frequency.value=880; g.gain.value=0.06;
+        o.start(); o.stop(a.currentTime+0.18);
+      }catch(e){}
+    }
+    function notify(title, bodyText){
+      if ("Notification" in window && Notification.permission === "granted"){
+        try{ new Notification(title, { body: bodyText, icon: "assets/img/cumbria-tourism-member.jpg" }); }catch(e){}
+      }
+      beep();
+    }
+
+    function esc(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+    function prettyDate(iso){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||"")) return iso||"—";
+      return new Date(iso+"T00:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"});
+    }
+
+    function renderLive(live){
+      $("sLive").textContent = live.length;
+      $("hdrLive").textContent = live.length + " live";
+      $("hdrDot").className = "dot" + (live.length ? " on" : "");
+      const el = $("liveList");
+      if(!live.length){ el.innerHTML = '<div class="empty">No one on the site at the moment.</div>'; return; }
+      el.innerHTML = live.map(v=>{
+        const page = v.path==="/"||v.path==="/index.html" ? "Home page" : esc(v.path);
+        const ago = v.agoSec < 60 ? v.agoSec+"s ago" : Math.round(v.agoSec/60)+"m ago";
+        return `<div class="lv"><div><div class="where">${esc(v.place)}</div><div class="meta">${page}</div></div><div class="ago">${ago}</div></div>`;
+      }).join("");
+    }
+
+    function renderBookings(list){
+      const el = $("bookingList");
+      if(!list || !list.length){ el.innerHTML = '<div class="empty">No bookings yet.</div>'; return; }
+      el.innerHTML = list.map(b=>{
+        const phone = b.phone ? `<a href="tel:${esc(b.phone.replace(/\s/g,''))}">📞 ${esc(b.phone)}</a>` : "";
+        const email = b.email ? `<a href="mailto:${esc(b.email)}">✉️ ${esc(b.email)}</a>` : "";
+        const disc = b.discount ? `<span class="chip">${esc(b.discount)}</span>` : "";
+        return `<div class="bk">
+          <div class="top">
+            <div><span class="who">${esc(b.name)||"—"}</span> <span class="exp">· ${esc(b.experience)||"Session"}</span></div>
+            <div class="paid">${esc(b.paid)}</div>
+          </div>
+          <div class="row">
+            <span>🗓️ ${prettyDate(b.date)} · ${esc(b.time)}</span>
+            <span>👥 ${esc(b.people)||"—"}</span>
+            <span>📍 ${esc(b.pickup)||"—"}</span> ${disc}
+          </div>
+          <div class="row">${phone} ${email}</div>
+          ${b.notes ? `<div class="notes">“${esc(b.notes)}”</div>` : ""}
+        </div>`;
+      }).join("");
+    }
+
+    async function load(){
+      const pw = localStorage.getItem(KEY);
+      if(!pw) return showLogin();
+      try{
+        const res = await fetch("/api/dashboard-data",{
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ password: pw })
+        });
+        if(res.status===401){ localStorage.removeItem(KEY); showLogin("That password didn't work."); return; }
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.error||"Could not load.");
+
+        renderLive(data.live||[]);
+        renderBookings(data.bookings||[]);
+        $("sToday").textContent = data.visitorsToday||0;
+        $("s7").textContent = data.visitors7d||0;
+
+        // In-app alerts for new activity (skip the very first load)
+        if(!firstLoad){
+          if(prevLiveCount!=null && data.liveCount > prevLiveCount){
+            const newest = (data.live&&data.live[0]) ? data.live[0].place : "the site";
+            notify("Someone's on the site", "New visitor from "+newest);
+          }
+          if(prevBookings!=null && (data.bookings||[]).length > prevBookings){
+            const b = data.bookings[0]||{};
+            notify("New booking! 🌊", (b.name||"Someone")+" · "+(b.experience||"")+" on "+prettyDate(b.date));
+          }
+        }
+        prevLiveCount = data.liveCount;
+        prevBookings = (data.bookings||[]).length;
+        firstLoad = false;
+      }catch(e){ /* keep last view; will retry */ }
+    }
+
+    function showDash(){
+      $("loginView").style.display="none";
+      $("dashView").style.display="block";
+      firstLoad = true; prevLiveCount=null; prevBookings=null;
+      load();
+      clearInterval(timer);
+      timer = setInterval(load, 15000);
+    }
+    function showLogin(msg){
+      clearInterval(timer);
+      $("dashView").style.display="none";
+      $("loginView").style.display="flex";
+      $("loginErr").textContent = msg||"";
+      $("pw").value="";
+    }
+
+    async function doLogin(){
+      const pw = $("pw").value.trim();
+      if(!pw){ $("loginErr").textContent="Please enter your password."; return; }
+      $("loginErr").textContent="Checking…";
+      try{
+        const res = await fetch("/api/dashboard-data",{
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ password: pw })
+        });
+        if(res.status===401){ $("loginErr").textContent="Incorrect password."; return; }
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.error||"Could not log in.");
+        localStorage.setItem(KEY, pw);
+        $("loginErr").textContent="";
+        showDash();
+      }catch(e){ $("loginErr").textContent = e.message; }
+    }
+
+    $("loginBtn").addEventListener("click", doLogin);
+    $("pw").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+    $("refreshBtn").addEventListener("click", load);
+    $("logoutBtn").addEventListener("click", ()=>{ localStorage.removeItem(KEY); showLogin(); });
+    $("notifyBtn").addEventListener("click", async ()=>{
+      if(!("Notification" in window)){ alert("Your browser doesn't support alerts. The dashboard will still update on screen."); return; }
+      const p = await Notification.requestPermission();
+      $("notifyBtn").textContent = p==="granted" ? "🔔 Alerts on" : "🔔 Enable alerts";
+      if(p==="granted") beep();
+    });
+
+    // Auto-login if we already have the password stored on this device
+    if(localStorage.getItem(KEY)) showDash(); else showLogin();
+  </script>
+</body>
+</html>
