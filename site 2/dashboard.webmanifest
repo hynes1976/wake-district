@@ -9,9 +9,9 @@
   "theme_color": "#082f49",
   "icons": [
     {
-      "src": "assets/img/cumbria-tourism-member.jpg",
-      "sizes": "500x442",
-      "type": "image/jpeg",
+      "src": "assets/img/logo-horizontal.png",
+      "sizes": "252x200",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

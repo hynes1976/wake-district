@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="WD Dashboard" />
   <link rel="manifest" href="dashboard.webmanifest" />
-  <link rel="apple-touch-icon" href="assets/img/cumbria-tourism-member.jpg" />
+  <link rel="apple-touch-icon" href="assets/img/logo-horizontal.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -79,7 +79,7 @@
 </head>
 <body>
   <header class="bar">
-    <h1>Wake District · Dashboard</h1>
+    <h1><img src="assets/img/logo-white.png" alt="Wake District" style="height:30px;width:auto;vertical-align:middle;margin-right:10px" />Dashboard</h1>
     <span class="live-pill"><span class="dot" id="hdrDot"></span> <span id="hdrLive">—</span></span>
   </header>
 
@@ -154,7 +154,7 @@
     }
     function notify(title, bodyText){
       if ("Notification" in window && Notification.permission === "granted"){
-        try{ new Notification(title, { body: bodyText, icon: "assets/img/cumbria-tourism-member.jpg" }); }catch(e){}
+        try{ new Notification(title, { body: bodyText, icon: "assets/img/logo-horizontal.png" }); }catch(e){}
       }
       beep();
     }
