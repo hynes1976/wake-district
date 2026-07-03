@@ -40,6 +40,7 @@ function buildHeader() {
         <ul class="nav-links">${links}</ul>
         <div class="nav-cta">
           <a href="book.html" class="btn btn--primary">Book Now</a>
+          <img class="nav-badge" src="assets/img/cumbria-tourism-member.jpg" alt="Cumbria Tourism Member" />
           <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false">
             <span></span><span></span><span></span>
           </button>

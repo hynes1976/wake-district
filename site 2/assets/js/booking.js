@@ -24,6 +24,9 @@ const EXPERIENCES = [
 ];
 
 const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
+// Discount codes — the real discount is applied again on the server (create-checkout.js).
+// If you change these, change them in BOTH files. Codes are matched case-insensitively.
+const DISCOUNTS = { WD5: 5, WD10: 10 };
 const OPEN_HOUR = 8;
 const LAST_START_HOUR = 18;
 const MONTHS_AHEAD = 12;
@@ -34,7 +37,7 @@ const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, "0");
 const isoOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
-const state = { exp: null, date: "", time: "", location: "", people: "" };
+const state = { exp: null, date: "", time: "", location: "", people: "", discountCode: "", discountPercent: 0 };
 let BLOCKED = new Set();         // holiday / closed dates "YYYY-MM-DD"
 let BOOKED = {};                 // { "YYYY-MM-DD": Set("HH:MM" occupied start slots) }
 let BOOKINGS = {};               // { "YYYY-MM-DD": [ {time, hours, experience} ] } for display
@@ -221,14 +224,63 @@ function renderTimes(iso) {
   $("timeHint").textContent = "Times already booked, or less than an hour away, won't appear here.";
 }
 
+/* ---- Pick-up location (handles "Customer preferred" free-text) ---- */
+function syncLocation() {
+  const sel = $("location").value;
+  const row = $("prefLocationRow");
+  if (sel === "__other__") {
+    row.style.display = "";
+    const txt = $("locationOther").value.trim();
+    state.location = txt ? "Customer preferred: " + txt : "__other__";
+  } else {
+    row.style.display = "none";
+    state.location = sel;
+  }
+  updateSummary();
+}
+
 /* ---- Live summary ---- */
 function updateSummary() {
   $("sExp").textContent = state.exp ? state.exp.name : "—";
   $("sDate").textContent = state.date ? prettyDate(state.date) : "—";
   $("sTime").textContent = state.time || "—";
-  $("sLoc").textContent = state.location || "—";
+  $("sLoc").textContent = state.location === "__other__" ? "Customer preferred pick-up" : (state.location || "—");
   $("sPeople").textContent = state.people ? `${state.people} ${state.people === "1" ? "person" : "people"}` : "—";
-  $("sTotal").textContent = state.exp ? gbp(state.exp.price) : "£0";
+
+  const base = state.exp ? state.exp.price : 0;
+  const line = $("discountLine");
+  if (state.discountPercent && base) {
+    const off = Math.round(base * state.discountPercent) / 100;
+    const total = Math.round((base - off) * 100) / 100;
+    $("sDiscount").textContent = `${state.discountCode} (−${state.discountPercent}%)  −${gbp(off)}`;
+    line.style.display = "";
+    $("sTotal").textContent = gbp(total);
+  } else {
+    line.style.display = "none";
+    $("sTotal").textContent = base ? gbp(base) : "£0";
+  }
+}
+
+/* ---- Discount code ---- */
+function applyDiscount() {
+  const raw = ($("discount").value || "").trim().toUpperCase();
+  const msg = $("discountMsg");
+  if (!raw) {
+    state.discountCode = ""; state.discountPercent = 0;
+    msg.textContent = ""; msg.className = "discount-msg";
+    updateSummary();
+    return;
+  }
+  if (DISCOUNTS[raw]) {
+    state.discountCode = raw; state.discountPercent = DISCOUNTS[raw];
+    msg.textContent = `Code applied — ${DISCOUNTS[raw]}% off.`;
+    msg.className = "discount-msg is-ok";
+  } else {
+    state.discountCode = ""; state.discountPercent = 0;
+    msg.textContent = "That code isn't valid.";
+    msg.className = "discount-msg is-bad";
+  }
+  updateSummary();
 }
 
 /* ---- Validation ---- */
@@ -238,8 +290,11 @@ function validate() {
   if (BLOCKED.has(state.date)) return "Sorry, we're closed on that date — please pick another day.";
   if (!state.time) return "Please choose a start time.";
   if (BOOKED[state.date] && BOOKED[state.date].has(state.time)) return "Sorry, that start time has just been taken — please choose another.";
-  if (!state.location) return "Please choose a pick-up location.";
-  if (SWAN_LAKESIDE_ONLY.includes(state.exp.id) && state.location === "Fell Foot")
+  if (!$("location").value) return "Please choose a pick-up location.";
+  if ($("location").value === "__other__" && !$("locationOther").value.trim())
+    return "Please tell us your preferred pick-up point.";
+  const preferred = $("location").value === "__other__";
+  if (SWAN_LAKESIDE_ONLY.includes(state.exp.id) && (state.location === "Fell Foot" || preferred))
     return "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only. Please choose one of those pick-up points.";
   if (!state.people) return "Please tell us how many people are coming.";
   const name = $("name").value.trim();
@@ -282,6 +337,7 @@ async function handleSubmit(e) {
     email: $("email").value.trim(),
     phone: $("phone").value.trim(),
     notes: $("notes").value.trim(),
+    discountCode: state.discountCode || "",
   };
 
   try {
@@ -307,8 +363,11 @@ document.addEventListener("DOMContentLoaded", () => {
   loadAvailability();
 
   $("time").addEventListener("change", (e) => { state.time = e.target.value; updateSummary(); });
-  $("location").addEventListener("change", (e) => { state.location = e.target.value; updateSummary(); });
+  $("location").addEventListener("change", syncLocation);
+  $("locationOther").addEventListener("input", syncLocation);
   $("people").addEventListener("change", (e) => { state.people = e.target.value; updateSummary(); });
+  $("applyDiscount").addEventListener("click", applyDiscount);
+  $("discount").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyDiscount(); } });
   $("bookingForm").addEventListener("submit", handleSubmit);
 
   const wanted = new URLSearchParams(location.search).get("exp");
