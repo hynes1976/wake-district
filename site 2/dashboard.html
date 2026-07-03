@@ -61,6 +61,14 @@
     .btn--block{width:100%}
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
     .note{font-size:.82rem;color:var(--muted);margin-top:6px}
+    /* chart */
+    .chart{display:flex;align-items:flex-end;gap:5px;height:140px;margin:8px 0 2px;padding-top:6px}
+    .barwrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
+    .bar{width:100%;max-width:26px;background:linear-gradient(180deg,#17a2b8,#0d6e7d);border-radius:5px 5px 0 0;min-height:3px;transition:height .3s}
+    .bar.today{background:linear-gradient(180deg,#38e08a,#1a9d63)}
+    .barlbl{font-size:.62rem;color:var(--muted);line-height:1}
+    .barval{font-size:.62rem;color:var(--navy);font-weight:700;line-height:1}
+    .chart-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:4px}
     /* login */
     .login{min-height:70vh;display:flex;align-items:center;justify-content:center}
     .login .card{width:100%;max-width:380px;text-align:center}
@@ -116,9 +124,14 @@
       </div>
 
       <div class="card">
-        <h2>📈 Traffic &amp; performance</h2>
-        <p class="muted" style="font-size:.9rem;margin:0 0 6px">Detailed graphs (page views over time, load speed, referrers) live in your Cloudflare account:</p>
-        <p style="margin:0"><a class="plain" href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener">Open Cloudflare Web Analytics →</a></p>
+        <h2>📈 Traffic — last 14 days</h2>
+        <div class="chart" id="chart"><div class="empty">Gathering data…</div></div>
+        <div class="chart-legend">
+          <span id="pvToday">Page views today: —</span>
+          <span>Green bar = today</span>
+        </div>
+        <p class="note">Bars show unique visitors per day. Hover/tap a bar for the date and count.</p>
+        <p class="note">Want load-speed &amp; referrer detail too? Your Cloudflare account has deeper graphs, but everything above is live here on your dashboard.</p>
         <p class="note">Add this dashboard to your phone: open in your browser, tap Share → “Add to Home Screen”.</p>
       </div>
     </div>
@@ -165,6 +178,22 @@
       }).join("");
     }
 
+    function renderChart(series, viewsToday){
+      const el = $("chart");
+      if(!series || !series.length){ el.innerHTML = '<div class="empty">No visits recorded yet.</div>'; return; }
+      const max = Math.max(1, ...series.map(s=>s.uv));
+      el.innerHTML = series.map((s,idx)=>{
+        const h = Math.round((s.uv/max)*100);
+        const today = idx === series.length-1;
+        return `<div class="barwrap" title="${esc(s.label)}: ${s.uv} visitor${s.uv===1?'':'s'}">
+          <div class="barval">${s.uv||''}</div>
+          <div class="bar${today?' today':''}" style="height:${h}%"></div>
+          <div class="barlbl">${s.dayNum}</div>
+        </div>`;
+      }).join("");
+      $("pvToday").textContent = "Page views today: " + (viewsToday||0);
+    }
+
     function renderBookings(list){
       const el = $("bookingList");
       if(!list || !list.length){ el.innerHTML = '<div class="empty">No bookings yet.</div>'; return; }
@@ -202,6 +231,7 @@
 
         renderLive(data.live||[]);
         renderBookings(data.bookings||[]);
+        renderChart(data.series||[], data.viewsToday||0);
         $("sToday").textContent = data.visitorsToday||0;
         $("s7").textContent = data.visitors7d||0;
 
