@@ -92,15 +92,6 @@ export async function onRequestPost({ request, env }) {
   });
 }
 
-export async function onRequestGet({ env }) {
-  const p = env.ADMIN_PASSWORD || "";
-  return json({
-    info: "POST with your password to load the dashboard.",
-    // Temporary diagnostics — no password revealed:
-    passwordConfigured: !!p,
-    passwordLength: p.length,
-    passwordHasWhitespace: /\s/.test(p),
-    firstChar: p.slice(0, 1),
-    lastChar: p.slice(-1),
-  });
+export async function onRequestGet() {
+  return json({ error: "POST with your password to load the dashboard." }, 405);
 }
