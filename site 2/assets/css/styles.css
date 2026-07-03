@@ -360,6 +360,10 @@ textarea { resize: vertical; min-height: 96px; }
 }
 .google-badge:hover { box-shadow: 0 6px 18px rgba(0,0,0,.12); }
 .google-badge svg { display: block; }
+.gb-text { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
+.gb-rating { font-weight: 700; color: #3c4043; font-size: .95rem; }
+.gb-stars { color: #fbbc05; letter-spacing: 1px; }
+.gb-sub { font-size: .78rem; font-weight: 500; color: #5b7682; }
 .discount-box { margin: 14px 0 4px; }
 .discount-box label { display: block; font-weight: 600; color: var(--navy); margin-bottom: 6px; font-size: .95rem; }
 .discount-row { display: flex; gap: 8px; }
