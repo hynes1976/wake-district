@@ -23,6 +23,7 @@
 
    No cost, no accounts, no keys.
    ============================================================ */
+// Deploy marker: v1 — visitor phone alerts enabled.
 
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
