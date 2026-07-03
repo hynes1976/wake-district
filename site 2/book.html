@@ -74,8 +74,16 @@
                   <option value="The Swan Hotel &amp; Spa, Lakeside">The Swan Hotel &amp; Spa, Lakeside</option>
                   <option value="Fell Foot">Fell Foot</option>
                   <option value="Lakeside Hotel &amp; Spa">Lakeside Hotel &amp; Spa</option>
+                  <option value="__other__">Customer preferred pick-up…</option>
                 </select>
                 <p class="field-hint">Half-day and full-day sessions run from The Swan Hotel &amp; Spa / Lakeside only.</p>
+              </div>
+            </div>
+            <div class="form-row" id="prefLocationRow" style="display:none;margin-top:12px">
+              <div>
+                <label for="locationOther">Your preferred pick-up point <span class="req">*</span></label>
+                <input id="locationOther" name="locationOther" placeholder="Tell us where you'd like to be picked up…" />
+                <p class="field-hint">We'll confirm we can reach this location before your session.</p>
               </div>
             </div>
 
@@ -122,6 +130,17 @@
             <div class="summary-line"><span>Start time</span><span id="sTime">—</span></div>
             <div class="summary-line"><span>Pick-up</span><span id="sLoc">—</span></div>
             <div class="summary-line"><span>Group size</span><span id="sPeople">—</span></div>
+            <div class="discount-box">
+              <label for="discount">Discount code</label>
+              <div class="discount-row">
+                <input id="discount" name="discount" placeholder="Enter code" autocomplete="off" />
+                <button type="button" class="btn btn--ghost" id="applyDiscount">Apply</button>
+              </div>
+              <p class="discount-msg" id="discountMsg"></p>
+            </div>
+            <div class="summary-line" id="discountLine" style="display:none">
+              <span>Discount</span><span id="sDiscount">—</span>
+            </div>
             <div class="summary-total">
               <span class="lbl">Total</span>
               <span class="val" id="sTotal">£0</span>
