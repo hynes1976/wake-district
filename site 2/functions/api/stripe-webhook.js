@@ -59,6 +59,7 @@ function occupiedSlots(time, hours) {
 async function recordBooking(env, m) {
   if (!env.WD_KV || !m.date || !m.time) return;
   const hours = parseInt(m.hours || "1", 10) || 1;
+  // 1. Occupied 30-min slots (incl. buffer) — used to filter times & block double-booking
   const slots = occupiedSlots(m.time, hours);
   const raw = await env.WD_KV.get("booked_slots");
   const obj = raw ? JSON.parse(raw) : {};
@@ -66,6 +67,19 @@ async function recordBooking(env, m) {
   slots.forEach((s) => set.add(s));
   obj[m.date] = [...set].sort();
   await env.WD_KV.put("booked_slots", JSON.stringify(obj));
+
+  // 2. Human-friendly booking list for display on the calendar.
+  //    NO personal data is stored here — only the time, length and session type.
+  const label = (m.experience || "Session").replace(/\s*—\s*Wake District\s*$/, "");
+  const rawB = await env.WD_KV.get("bookings");
+  const bObj = rawB ? JSON.parse(rawB) : {};
+  const list = bObj[m.date] || [];
+  if (!list.some((b) => b.time === m.time)) {
+    list.push({ time: m.time, hours, experience: label });
+    list.sort((a, b) => a.time.localeCompare(b.time));
+    bObj[m.date] = list;
+    await env.WD_KV.put("bookings", JSON.stringify(bObj));
+  }
 }
 
 function prettyDate(iso) {
@@ -112,6 +126,7 @@ function businessEmailHtml(m, amount) {
       <tr><td><b>Start time</b></td><td>${m.time || "—"}</td></tr>
       <tr><td><b>Pick-up</b></td><td>${m.pickup_location || "—"}</td></tr>
       <tr><td><b>People</b></td><td>${m.people || "—"}</td></tr>
+      ${m.discount_code ? `<tr><td><b>Discount</b></td><td>${m.discount_code} (−${m.discount_percent}%)</td></tr>` : ""}
       <tr><td><b>Paid</b></td><td>${amount}</td></tr>
       <tr><td><b>Name</b></td><td>${m.customer_name || "—"}</td></tr>
       <tr><td><b>Email</b></td><td>${m.customer_email || "—"}</td></tr>

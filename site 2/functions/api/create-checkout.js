@@ -33,6 +33,10 @@ const VALID_LOCATIONS = [
 ];
 const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
 
+// Discount codes the business can hand out. Percent off the total.
+// Keep in sync with assets/js/booking.js. Matched case-insensitively.
+const DISCOUNTS = { WD5: 5, WD10: 10 };
+
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
@@ -61,19 +65,30 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Invalid request." }, 400);
   }
 
-  const { experienceId, date, time, location, people, name, email, phone, notes } = body || {};
+  const { experienceId, date, time, location, people, name, email, phone, notes, discountCode } = body || {};
 
   // --- Server-side validation ---
   const item = PRICES[experienceId];
   if (!item) return json({ error: "Unknown session type." }, 400);
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "Invalid date." }, 400);
   if (!time || !/^\d{2}:\d{2}$/.test(time)) return json({ error: "Invalid time." }, 400);
-  if (!VALID_LOCATIONS.includes(location)) return json({ error: "Please choose a valid pick-up location." }, 400);
-  if (SWAN_LAKESIDE_ONLY.includes(experienceId) && location === "Fell Foot")
+  const isPreferred = typeof location === "string" && location.startsWith("Customer preferred: ");
+  if (!VALID_LOCATIONS.includes(location) && !isPreferred)
+    return json({ error: "Please choose a valid pick-up location." }, 400);
+  if (isPreferred && location.replace("Customer preferred: ", "").trim().length < 2)
+    return json({ error: "Please tell us your preferred pick-up point." }, 400);
+  if (SWAN_LAKESIDE_ONLY.includes(experienceId) && (location === "Fell Foot" || isPreferred))
     return json({ error: "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only." }, 400);
   const ppl = parseInt(people, 10);
   if (!(ppl >= 1 && ppl <= 6)) return json({ error: "Group size must be 1–6." }, 400);
   if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Invalid contact details." }, 400);
+
+  // --- Discount (authoritative: recompute the amount here, never trust the browser) ---
+  const codeKey = (discountCode || "").trim().toUpperCase();
+  const discountPercent = DISCOUNTS[codeKey] || 0;
+  const unitAmount = discountPercent
+    ? Math.round((item.amount * (100 - discountPercent)) / 100)
+    : item.amount;
 
   // Require at least 1 hour's notice (gives us time to get to the customer)
   const LEAD_MS = 60 * 60 * 1000;
@@ -107,11 +122,12 @@ export async function onRequestPost({ request, env }) {
 
   form.set("line_items[0][quantity]", "1");
   form.set("line_items[0][price_data][currency]", "gbp");
-  form.set("line_items[0][price_data][unit_amount]", String(item.amount));
+  form.set("line_items[0][price_data][unit_amount]", String(unitAmount));
   form.set("line_items[0][price_data][product_data][name]", item.name);
   form.set(
     "line_items[0][price_data][product_data][description]",
-    `${niceDate} at ${time} · ${ppl} ${ppl === 1 ? "person" : "people"} · Pick-up: ${location}`
+    `${niceDate} at ${time} · ${ppl} ${ppl === 1 ? "person" : "people"} · Pick-up: ${location}` +
+      (discountPercent ? ` · Discount ${codeKey} (−${discountPercent}%)` : "")
   );
 
   // Saved against the payment, and used by the webhook to mark the slot booked
@@ -126,6 +142,9 @@ export async function onRequestPost({ request, env }) {
     customer_email: email,
     customer_phone: phone || "",
     notes: notes || "",
+    discount_code: discountPercent ? codeKey : "",
+    discount_percent: discountPercent ? String(discountPercent) : "",
+    amount_paid: (unitAmount / 100).toFixed(2),
   };
   Object.entries(meta).forEach(([k, v]) => {
     form.set(`metadata[${k}]`, v);
