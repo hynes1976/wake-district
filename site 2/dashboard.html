@@ -81,7 +81,10 @@
       <div class="card">
         <h2 style="justify-content:center">Owner login</h2>
         <p class="muted" style="font-size:.9rem;margin:0">Enter your dashboard password (the same one you use for holiday dates).</p>
-        <input id="pw" type="password" placeholder="Password" autocomplete="current-password" />
+        <input id="pw" type="password" placeholder="Password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" name="wd-dash-pw" />
+        <label style="display:flex;align-items:center;gap:8px;justify-content:center;font-size:.85rem;color:var(--muted);margin:-4px 0 8px;cursor:pointer">
+          <input type="checkbox" id="showPw" /> Show password
+        </label>
         <button class="btn btn--primary btn--block" id="loginBtn">Log in</button>
         <div class="err" id="loginErr"></div>
       </div>
@@ -255,6 +258,7 @@
 
     $("loginBtn").addEventListener("click", doLogin);
     $("pw").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+    $("showPw").addEventListener("change", e=>{ $("pw").type = e.target.checked ? "text" : "password"; });
     $("refreshBtn").addEventListener("click", load);
     $("logoutBtn").addEventListener("click", ()=>{ localStorage.removeItem(KEY); showLogin(); });
     $("notifyBtn").addEventListener("click", async ()=>{
