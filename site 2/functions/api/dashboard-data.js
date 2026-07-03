@@ -64,13 +64,28 @@ export async function onRequestPost({ request, env }) {
   } catch { /* best effort */ }
   live.sort((a, b) => a.agoSec - b.agoSec);
 
-  // ---- Visitor counts ----
+  // ---- Visitor counts + 14-day trend ----
   let visitorsToday = 0;
   let visitors7d = 0;
+  let viewsToday = 0;
+  const series = [];
   try {
-    visitorsToday = parseInt((await env.WD_KV.get("count:uv:" + dayString(0))) || "0", 10) || 0;
-    for (let i = 0; i < 7; i++) {
-      visitors7d += parseInt((await env.WD_KV.get("count:uv:" + dayString(i))) || "0", 10) || 0;
+    viewsToday = parseInt((await env.WD_KV.get("count:pv:" + dayString(0))) || "0", 10) || 0;
+    // Build oldest -> newest for the last 14 days.
+    for (let i = 13; i >= 0; i--) {
+      const day = dayString(i);
+      const uv = parseInt((await env.WD_KV.get("count:uv:" + day)) || "0", 10) || 0;
+      const pv = parseInt((await env.WD_KV.get("count:pv:" + day)) || "0", 10) || 0;
+      const d = new Date(day + "T00:00:00Z");
+      series.push({
+        day,
+        dayNum: d.getUTCDate(),
+        label: d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }),
+        uv,
+        pv,
+      });
+      if (i === 0) visitorsToday = uv;
+      if (i < 7) visitors7d += uv;
     }
   } catch { /* best effort */ }
 
@@ -87,6 +102,8 @@ export async function onRequestPost({ request, env }) {
     liveCount: live.length,
     visitorsToday,
     visitors7d,
+    viewsToday,
+    series,
     bookings: bookings.slice(0, 100),
     serverTime: Date.now(),
   });

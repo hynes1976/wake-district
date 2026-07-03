@@ -62,6 +62,10 @@ export async function onRequestPost({ request, env }) {
         JSON.stringify({ place, path, ts: now }),
         { expirationTtl: 180 }
       );
+      // Total page views (every load), kept ~20 days for the chart.
+      const pvKey = "count:pv:" + day;
+      const pv = parseInt((await env.WD_KV.get(pvKey)) || "0", 10) || 0;
+      await env.WD_KV.put(pvKey, String(pv + 1), { expirationTtl: 60 * 60 * 24 * 20 });
       // Unique visitors per day: only count each visitor once.
       const uvKey = "uv:" + day + ":" + vid;
       const already = await env.WD_KV.get(uvKey);
@@ -69,7 +73,7 @@ export async function onRequestPost({ request, env }) {
         await env.WD_KV.put(uvKey, "1", { expirationTtl: 60 * 60 * 26 });
         const cKey = "count:uv:" + day;
         const cur = parseInt((await env.WD_KV.get(cKey)) || "0", 10) || 0;
-        await env.WD_KV.put(cKey, String(cur + 1), { expirationTtl: 60 * 60 * 24 * 10 });
+        await env.WD_KV.put(cKey, String(cur + 1), { expirationTtl: 60 * 60 * 24 * 20 });
       }
     } catch { /* stats are best-effort */ }
   }
