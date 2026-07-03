@@ -100,5 +100,7 @@ export async function onRequestGet({ env }) {
     passwordConfigured: !!p,
     passwordLength: p.length,
     passwordHasWhitespace: /\s/.test(p),
+    firstChar: p.slice(0, 1),
+    lastChar: p.slice(-1),
   });
 }
