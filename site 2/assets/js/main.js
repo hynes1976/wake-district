@@ -30,11 +30,12 @@ function loadCloudflareAnalytics() {
 
 function brandMarkup() {
   return `
-    <a class="brand" href="index.html" aria-label="Wake District home">
+    <a class="brand" href="index.html" aria-label="Wake District — Water & Wake Sports, Teaching, Groups">
       <img src="${LOGO_SRC}" alt="Wake District" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
       <span class="brand-fallback" style="display:none">
         <span class="brand-mark">WD</span> WAKE DISTRICT
       </span>
+      <span class="brand-tag">Water &amp; Wake Sports <span class="sep">|</span> Teaching <span class="sep">|</span> Groups</span>
     </a>`;
 }
 
@@ -81,7 +82,7 @@ function buildFooter() {
           <span class="brand-fallback" style="display:none"><span class="brand-mark">WD</span> WAKE DISTRICT</span>
           <p>Family-run watersports on Lake Windermere. Wakeboarding, wakesurfing, wake foiling, kneeboarding, groups &amp; parties.</p>
           <div class="footer-social">
-            <a href="https://www.instagram.com/wake.district/" target="_blank" rel="noopener" aria-label="Wake District on Instagram"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg> Instagram</a>
+            <a href="https://www.instagram.com/wakedistrict.co.uk/" target="_blank" rel="noopener" aria-label="Wake District on Instagram"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg> Instagram</a>
             <a href="https://www.tripadvisor.co.uk/Attraction_Review-g1539401-d34108609-Reviews-Wake_District-Lakeside_Lake_District_Cumbria_England.html" target="_blank" rel="noopener" aria-label="Wake District on Tripadvisor"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg> Tripadvisor</a>
           </div>
         </div>
@@ -98,7 +99,13 @@ function buildFooter() {
             <li><a href="mailto:info@wakedistrict.co.uk">info@wakedistrict.co.uk</a></li>
             <li><a href="tel:07826551503">07826 551 503</a></li>
             <li><a href="tel:07758892222">07758 892222</a></li>
-            <li style="margin-top:8px;color:#8fb6c2">Pick-up: The Swan Hotel, Lakeside &amp; Fell Foot</li>
+            <li style="margin-top:10px;color:#8fb6c2">Pick-up points:
+              <ul style="list-style:disc;margin:6px 0 0 18px;padding:0">
+                <li style="margin:2px 0">The Swan Hotel &amp; Spa, Newby Bridge</li>
+                <li style="margin:2px 0">Fell Foot</li>
+                <li style="margin:2px 0">Lakeside Hotel &amp; Spa</li>
+              </ul>
+            </li>
           </ul>
         </div>
       </div>
