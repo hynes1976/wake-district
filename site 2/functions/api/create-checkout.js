@@ -27,7 +27,7 @@ const PRICES = {
 };
 
 const VALID_LOCATIONS = [
-  "The Swan Hotel & Spa, Lakeside",
+  "The Swan Hotel & Spa, Newby Bridge",
   "Fell Foot",
   "Lakeside Hotel & Spa",
 ];
