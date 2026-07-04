@@ -31,11 +31,11 @@ function loadCloudflareAnalytics() {
 function brandMarkup() {
   return `
     <a class="brand" href="index.html" aria-label="Wake District — Water & Wake Sports, Teaching, Groups">
-      <img src="${LOGO_SRC}" alt="Wake District" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-      <span class="brand-fallback" style="display:none">
-        <span class="brand-mark">WD</span> WAKE DISTRICT
+      <img class="brand-mark-img" src="assets/img/logo-mark.png" alt="" onerror="this.style.display='none';">
+      <span class="brand-word">
+        <span class="brand-name">WAKE DISTRICT</span>
+        <span class="brand-tag">Water &amp; Wake Sports <span class="sep">|</span> Teaching <span class="sep">|</span> Groups</span>
       </span>
-      <span class="brand-tag">Water &amp; Wake Sports <span class="sep">|</span> Teaching <span class="sep">|</span> Groups</span>
     </a>`;
 }
 
