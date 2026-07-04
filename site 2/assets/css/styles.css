@@ -95,15 +95,15 @@ h1, h2, h3, h4 { font-family: var(--head); line-height: 1.15; color: var(--navy)
 .nav { display: flex; align-items: center; justify-content: space-between; height: 96px; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand img { height: 66px; width: auto; }
-.brand-tag { display: none; }
-@media (min-width: 1024px) {
-  .brand-tag {
-    display: block; max-width: 210px; line-height: 1.35;
-    padding-left: 14px; margin-left: 2px; border-left: 2px solid var(--line);
-    font-family: var(--head); font-weight: 700; font-size: .7rem;
-    letter-spacing: .09em; text-transform: uppercase; color: var(--navy);
-  }
-  .brand-tag .sep { color: var(--teal); margin: 0 2px; }
+.brand-mark-img { height: 56px; width: auto; }
+.brand-word { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.brand-name { font-family: var(--head); font-weight: 800; color: var(--navy); font-size: 1.55rem; letter-spacing: .01em; line-height: 1; }
+.brand-tag { font-family: var(--head); font-weight: 700; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--navy); line-height: 1; }
+.brand-tag .sep { color: var(--teal); margin: 0 3px; }
+@media (max-width: 560px) {
+  .brand-mark-img { height: 46px; }
+  .brand-name { font-size: 1.15rem; }
+  .brand-tag { font-size: .52rem; letter-spacing: .03em; }
 }
 .brand-fallback { display: flex; align-items: center; gap: 10px; font-family: var(--head); font-weight: 800; color: var(--navy); font-size: 1.25rem; letter-spacing: .04em; }
 .brand-mark {
