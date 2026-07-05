@@ -82,7 +82,7 @@ function buildFooter() {
           <span class="brand-fallback" style="display:none"><span class="brand-mark">WD</span> WAKE DISTRICT</span>
           <p>Family-run watersports on Lake Windermere. Wakeboarding, wakesurfing, wake foiling, kneeboarding, groups &amp; parties.</p>
           <div class="footer-social">
-            <a href="https://www.instagram.com/wakedistrict.co.uk/" target="_blank" rel="noopener" aria-label="Wake District on Instagram"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg> Instagram</a>
+            <a href="https://www.instagram.com/wakedistrict_/" target="_blank" rel="noopener" aria-label="Wake District on Instagram"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg> Instagram</a>
             <a href="https://www.tripadvisor.co.uk/Attraction_Review-g1539401-d34108609-Reviews-Wake_District-Lakeside_Lake_District_Cumbria_England.html" target="_blank" rel="noopener" aria-label="Wake District on Tripadvisor"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg> Tripadvisor</a>
           </div>
         </div>
