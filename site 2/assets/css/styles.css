@@ -122,7 +122,7 @@ h1, h2, h3, h4 { font-family: var(--head); line-height: 1.15; color: var(--navy)
   content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 2px; background: var(--aqua); border-radius: 2px;
 }
 .nav-cta { display: flex; align-items: center; gap: 14px; }
-.nav-badge { height: 76px; width: auto; border-radius: 8px; display: block; }
+.nav-badge { height: 90px; width: auto; border-radius: 8px; display: block; }
 .nav-toggle { display: none; background: none; border: 0; cursor: pointer; padding: 8px; }
 .nav-toggle span { display: block; width: 24px; height: 2px; background: var(--navy); margin: 5px 0; transition: .2s; }
 
@@ -311,7 +311,7 @@ textarea { resize: vertical; min-height: 96px; }
 }
 @media (max-width: 760px) {
   .nav-links, .nav-cta .btn { display: none; }
-  .nav-badge { height: 52px; }
+  .nav-badge { height: 64px; }
   .nav-toggle { display: block; }
   .nav.open .nav-links {
     display: flex; flex-direction: column; position: absolute; top: 96px; left: 0; right: 0;
