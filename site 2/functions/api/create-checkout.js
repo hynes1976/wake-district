@@ -1,5 +1,6 @@
 /* ============================================================
    POST /api/create-checkout   (Cloudflare Pages Function)
+   Deploy marker: live payments enabled.
 
    Creates a Stripe Checkout Session and returns its URL.
    The browser then redirects the customer to Stripe to pay.
