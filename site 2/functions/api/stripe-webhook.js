@@ -122,6 +122,33 @@ async function sendEmail(env, to, subject, html) {
   });
 }
 
+// Instant booking alert to the owner's phone via ntfy (same app as visitor pings).
+async function sendBookingPing(env, m, amount) {
+  const topic = env.BOOKINGS_NTFY_TOPIC || env.NTFY_TOPIC;
+  if (!topic) return;
+  const server = (env.NTFY_SERVER || "https://ntfy.sh").replace(/\/+$/, "");
+  const exp = (m.experience || "Session").replace(/\s*—\s*Wake District\s*$/, "");
+  const body =
+    `${m.customer_name || "Someone"} — ${exp}\n` +
+    `${prettyDate(m.date)} at ${m.time || "?"}\n` +
+    `${m.people || "?"} people · Pick-up: ${m.pickup_location || "—"}\n` +
+    `Phone: ${m.customer_phone || "—"}\n` +
+    `Email: ${m.customer_email || "—"}\n` +
+    `Paid: ${amount}`;
+  try {
+    await fetch(`${server}/${topic}`, {
+      method: "POST",
+      headers: {
+        "Title": "New booking - Wake District",
+        "Tags": "tada,ocean",
+        "Priority": "high",
+        "Click": "https://www.wakedistrict.co.uk/dashboard.html",
+      },
+      body,
+    });
+  } catch (e) { /* best effort */ }
+}
+
 function customerEmailHtml(m) {
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;color:#11242f;max-width:560px">
@@ -182,6 +209,9 @@ export async function onRequestPost({ request, env }) {
 
   // 1b. Save the full booking (with contact details) for the Owner Dashboard
   try { await recordBookingContact(env, m, paidAmount); } catch (e) { /* best effort */ }
+
+  // 1c. Instant booking alert to the owner's phone (ntfy)
+  try { await sendBookingPing(env, m, paidAmount); } catch (e) { /* best effort */ }
 
   // 2. Emails (only if Resend is configured)
   if (env.RESEND_API_KEY && env.FROM_EMAIL) {
