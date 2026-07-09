@@ -311,7 +311,10 @@ textarea { resize: vertical; min-height: 96px; }
 }
 @media (max-width: 760px) {
   .nav-links, .nav-cta .btn { display: none; }
-  .nav-badge { height: 64px; }
+  .nav-badge { height: 50px; }
+  .brand-tag { display: none; }
+  .brand-name { font-size: 1.25rem; }
+  .brand-mark-img { height: 44px; }
   .nav-toggle { display: block; }
   .nav.open .nav-links {
     display: flex; flex-direction: column; position: absolute; top: 96px; left: 0; right: 0;
