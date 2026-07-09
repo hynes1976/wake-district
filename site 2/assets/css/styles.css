@@ -311,10 +311,10 @@ textarea { resize: vertical; min-height: 96px; }
 }
 @media (max-width: 760px) {
   .nav-links, .nav-cta .btn { display: none; }
-  .nav-badge { height: 40px; }
+  .nav-badge { display: none; }
   .brand-tag { display: none; }
-  .brand-name { font-size: 1.05rem; }
-  .brand-mark-img { height: 36px; }
+  .brand-name { font-size: 1.25rem; }
+  .brand-mark-img { height: 44px; }
   .nav-cta { gap: 10px; }
   .brand { gap: 10px; }
   .nav-toggle { display: block; }
