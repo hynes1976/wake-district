@@ -59,12 +59,9 @@
 
         <div class="card">
           <div class="form-success" id="contactSuccess">Thanks for submitting! A member of our team will be in touch shortly.</div>
-          <!--
-            This form posts to Formspree (free tier) so you receive an email for every enquiry,
-            with no server to run. Replace the action URL with your own Formspree form ID.
-            See DEPLOYMENT-GUIDE.md, step 7.
-          -->
-          <form id="contactForm" action="https://formspree.io/f/your-form-id" method="POST">
+          <!-- Posts to our own Cloudflare Function (/api/contact), which emails the
+               enquiry to info@wakedistrict.co.uk via Resend with the sender as reply-to. -->
+          <form id="contactForm" action="/api/contact" method="POST">
             <div class="form-row cols-2">
               <div><label for="fname">First name <span class="req">*</span></label><input id="fname" name="first_name" required /></div>
               <div><label for="lname">Last name <span class="req">*</span></label><input id="lname" name="last_name" required /></div>
