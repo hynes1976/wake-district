@@ -23,21 +23,31 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "TouristAttraction",
+    "@type": ["SportsActivityLocation", "TouristAttraction"],
     "name": "Wake District",
     "url": "https://www.wakedistrict.co.uk/",
     "image": "https://www.wakedistrict.co.uk/assets/img/hero.jpg",
     "description": "Family-run watersports on Lake Windermere \u2014 wakeboarding, wake surfing, wake foiling, kneeboarding, groups and parties.",
     "telephone": "+447826551503",
     "email": "info@wakedistrict.co.uk",
+    "currenciesAccepted": "GBP",
+    "paymentAccepted": "Cash, Credit Card",
     "priceRange": "\u00a3120\u2013\u00a3700",
-    "address": {"@type": "PostalAddress","addressLocality": "Lakeside, Newby Bridge","addressRegion": "Cumbria","postalCode": "LA12 8NB","addressCountry": "GB"},
+    "address": {"@type": "PostalAddress","streetAddress": "The Swan Hotel & Spa, Lakeside","addressLocality": "Newby Bridge","addressRegion": "Cumbria","postalCode": "LA12 8NB","addressCountry": "GB"},
     "geo": {"@type": "GeoCoordinates","latitude": 54.2767634,"longitude": -2.9524751},
-    "areaServed": "Lake Windermere, Lake District",
+    "areaServed": ["Lake Windermere","Windermere","Bowness-on-Windermere","Newby Bridge","Lakeside","Ambleside","Kendal","Cumbria","Lake District"],
+    "sport": ["Wakeboarding","Wakesurfing","Wake foiling","Kneeboarding"],
     "aggregateRating": {"@type": "AggregateRating","ratingValue": "5.0","reviewCount": "11"},
+    "makesOffer": [
+      {"@type": "Offer","name": "1 Hour Watersports Session","priceCurrency": "GBP","price": "120","url": "https://www.wakedistrict.co.uk/book"},
+      {"@type": "Offer","name": "2 Hour Watersports Session","priceCurrency": "GBP","price": "220","url": "https://www.wakedistrict.co.uk/book"},
+      {"@type": "Offer","name": "3 Hour Watersports Session","priceCurrency": "GBP","price": "300","url": "https://www.wakedistrict.co.uk/book"},
+      {"@type": "Offer","name": "Half Day (4 hours)","priceCurrency": "GBP","price": "380","url": "https://www.wakedistrict.co.uk/book"},
+      {"@type": "Offer","name": "Full Day (8 hours)","priceCurrency": "GBP","price": "700","url": "https://www.wakedistrict.co.uk/book"}
+    ],
     "sameAs": [
       "https://www.tripadvisor.co.uk/Attraction_Review-g1539401-d34108609-Reviews-Wake_District-Lakeside_Lake_District_Cumbria_England.html",
-      "https://www.instagram.com/wake.district/",
+      "https://www.instagram.com/wakedistrict_/",
       "https://www.google.com/maps?cid=2066365177689349406"
     ]
   }
@@ -55,7 +65,7 @@
         <span class="pill">Wake Surfing</span>
         <span class="pill">Groups &amp; Parties</span>
       </div>
-      <h1><span style="white-space:nowrap">Ride the wake.</span> <span style="white-space:nowrap">Love the water.</span> <span style="white-space:nowrap">Chase the thrill.</span></h1>
+      <h1><span style="display:block;font-size:.34em;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.92;margin-bottom:.55em">Wakeboarding &amp; Watersports on Lake Windermere</span><span style="white-space:nowrap">Ride the wake.</span> <span style="white-space:nowrap">Love the water.</span> <span style="white-space:nowrap">Chase the thrill.</span></h1>
       <p class="lead">Family-run watersports on the stunning Lake Windermere — personal coaching, great vibes and unforgettable days on the water, whatever your level.</p>
       <div class="hero-actions">
         <a href="book.html" class="btn btn--primary btn--lg">Book Now</a>
