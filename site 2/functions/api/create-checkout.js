@@ -20,11 +20,11 @@
 // Source of truth for prices (GBP) and session length (hours).
 // Keep prices in sync with assets/js/booking.js.
 const PRICES = {
-  "1-hour":   { name: "1 Hour Time Slot — Wake District", amount: 12000, hours: 1 },
-  "2-hour":   { name: "2 Hour Time Slot — Wake District", amount: 22000, hours: 2 },
-  "3-hour":   { name: "3 Hour Time Slot — Wake District", amount: 30000, hours: 3 },
-  "half-day": { name: "Half Day (4 hours) — Wake District", amount: 38000, hours: 4 },
-  "full-day": { name: "Full Day (8 hours) — Wake District", amount: 70000, hours: 8 },
+  "1-hour":   { name: "1 Hour Time Slot — Wake District", amount: 14000, hours: 1 },
+  "2-hour":   { name: "2 Hour Time Slot — Wake District", amount: 26000, hours: 2 },
+  "3-hour":   { name: "3 Hour Time Slot — Wake District", amount: 36000, hours: 3 },
+  "half-day": { name: "Half Day (4 hours) — Wake District", amount: 45000, hours: 4 },
+  "full-day": { name: "Full Day (8 hours) — Wake District", amount: 80000, hours: 8 },
 };
 
 const VALID_LOCATIONS = [
