@@ -16,11 +16,11 @@
    ============================================================ */
 
 const EXPERIENCES = [
-  { id: "1-hour",  name: "1 Hour Time Slot", duration: "1 hour",  price: 120 },
-  { id: "2-hour",  name: "2 Hour Time Slot", duration: "2 hours", price: 220 },
-  { id: "3-hour",  name: "3 Hour Time Slot", duration: "3 hours", price: 300, popular: true },
-  { id: "half-day", name: "Half Day",        duration: "4 hours", price: 380 },
-  { id: "full-day", name: "Full Day",        duration: "8 hours", price: 700 },
+  { id: "1-hour",  name: "1 Hour Time Slot", duration: "1 hour",  price: 140 },
+  { id: "2-hour",  name: "2 Hour Time Slot", duration: "2 hours", price: 260 },
+  { id: "3-hour",  name: "3 Hour Time Slot", duration: "3 hours", price: 360, popular: true },
+  { id: "half-day", name: "Half Day",        duration: "4 hours", price: 450 },
+  { id: "full-day", name: "Full Day",        duration: "8 hours", price: 800 },
 ];
 
 const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
