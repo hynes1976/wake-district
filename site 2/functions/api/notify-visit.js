@@ -123,12 +123,14 @@ export async function onRequestPost({ request, env }) {
       clearTimeout(timer);
     }
     // Don't fail silently: surface the real status if ntfy rejected it.
+    // NOTE: returning 200 here (temporarily) so Cloudflare doesn't replace a
+    // 5xx body with its own error page — lets us read ntfy's actual response.
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      return json({ ok: false, error: "ntfy rejected", status: res.status, detail: detail.slice(0, 200) }, 502);
+      return json({ ok: false, error: "ntfy rejected", status: res.status, detail: detail.slice(0, 300) }, 200);
     }
   } catch (e) {
-    return json({ ok: false, error: "notify failed", detail: String((e && e.message) || e).slice(0, 150) }, 502);
+    return json({ ok: false, error: "notify failed", detail: String((e && e.message) || e).slice(0, 300) }, 200);
   }
 
   return json({ ok: true, sent: true });
