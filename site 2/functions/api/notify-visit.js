@@ -105,15 +105,9 @@ export async function onRequestPost({ request, env }) {
   // Authenticate the publish so ntfy.sh doesn't rate-limit / drop pings sent
   // from Cloudflare's shared egress IPs. Trim to strip any pasted whitespace
   // or trailing newline that would make the header value invalid.
-  const token = (env.NTFY_TOKEN || "").trim();
-  // Use ntfy's query-parameter auth (base64url of the "Bearer <token>" header
-  // value) rather than an Authorization header: the header form hangs when the
-  // request is sent from Cloudflare's network to ntfy.sh.
+  // DIAGNOSTIC: send an anonymous publish (no auth) and report ntfy's exact
+  // reply, to confirm whether ntfy is rate-limiting the shared Cloudflare IPs.
   let url = `${server}/${env.NTFY_TOPIC}`;
-  if (token) {
-    const b64 = btoa(`Bearer ${token}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    url += `?auth=${b64}`;
-  }
   try {
     // Hard timeout so a slow/hung ntfy request can never kill the worker.
     const ctrl = new AbortController();
