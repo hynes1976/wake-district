@@ -106,14 +106,21 @@ export async function onRequestPost({ request, env }) {
   // from Cloudflare's shared egress IPs. Trim to strip any pasted whitespace
   // or trailing newline that would make the header value invalid.
   const token = (env.NTFY_TOKEN || "").trim();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  // Use ntfy's query-parameter auth (base64url of the "Bearer <token>" header
+  // value) rather than an Authorization header: the header form hangs when the
+  // request is sent from Cloudflare's network to ntfy.sh.
+  let url = `${server}/${env.NTFY_TOPIC}`;
+  if (token) {
+    const b64 = btoa(`Bearer ${token}`).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    url += `?auth=${b64}`;
+  }
   try {
     // Hard timeout so a slow/hung ntfy request can never kill the worker.
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     let res;
     try {
-      res = await fetch(`${server}/${env.NTFY_TOPIC}`, {
+      res = await fetch(url, {
         method: "POST",
         headers,
         body: message,
