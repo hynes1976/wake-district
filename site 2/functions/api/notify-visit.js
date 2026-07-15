@@ -103,21 +103,32 @@ export async function onRequestPost({ request, env }) {
     "Click": "https://www.wakedistrict.co.uk/",
   };
   // Authenticate the publish so ntfy.sh doesn't rate-limit / drop pings sent
-  // from Cloudflare's shared egress IPs (anonymous publishing gets throttled).
-  if (env.NTFY_TOKEN) headers["Authorization"] = `Bearer ${env.NTFY_TOKEN}`;
+  // from Cloudflare's shared egress IPs. Trim to strip any pasted whitespace
+  // or trailing newline that would make the header value invalid.
+  const token = (env.NTFY_TOKEN || "").trim();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
-    const res = await fetch(`${server}/${env.NTFY_TOPIC}`, {
-      method: "POST",
-      headers,
-      body: message,
-    });
+    // Hard timeout so a slow/hung ntfy request can never kill the worker.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    let res;
+    try {
+      res = await fetch(`${server}/${env.NTFY_TOPIC}`, {
+        method: "POST",
+        headers,
+        body: message,
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     // Don't fail silently: surface the real status if ntfy rejected it.
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       return json({ ok: false, error: "ntfy rejected", status: res.status, detail: detail.slice(0, 200) }, 502);
     }
   } catch (e) {
-    return json({ ok: false, error: "notify failed" }, 502);
+    return json({ ok: false, error: "notify failed", detail: String((e && e.message) || e).slice(0, 150) }, 502);
   }
 
   return json({ ok: true, sent: true });

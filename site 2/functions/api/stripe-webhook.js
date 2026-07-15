@@ -146,9 +146,18 @@ async function sendBookingPing(env, m, amount) {
     "Click": "https://www.wakedistrict.co.uk/dashboard.html",
   };
   // Authenticate so ntfy.sh doesn't drop booking pings from Cloudflare's IPs.
-  if (env.NTFY_TOKEN) headers["Authorization"] = `Bearer ${env.NTFY_TOKEN}`;
+  // Trim to strip any pasted whitespace/newline that would invalidate the header.
+  const token = (env.NTFY_TOKEN || "").trim();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
-    await fetch(`${server}/${topic}`, { method: "POST", headers, body });
+    // Hard timeout so a slow/hung ntfy request can never stall the webhook.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      await fetch(`${server}/${topic}`, { method: "POST", headers, body, signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
   } catch (e) { /* best effort */ }
 }
 
