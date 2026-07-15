@@ -95,18 +95,27 @@ export async function onRequestPost({ request, env }) {
   const message = `Someone from ${place} just opened ${pageName}.`;
 
   const server = (env.NTFY_SERVER || "https://ntfy.sh").replace(/\/+$/, "");
+  const headers = {
+    // Headers must be ASCII; keep the human location in the body only.
+    "Title": "New visitor on Wake District",
+    "Tags": "ocean,eyes",
+    "Priority": "default",
+    "Click": "https://www.wakedistrict.co.uk/",
+  };
+  // Authenticate the publish so ntfy.sh doesn't rate-limit / drop pings sent
+  // from Cloudflare's shared egress IPs (anonymous publishing gets throttled).
+  if (env.NTFY_TOKEN) headers["Authorization"] = `Bearer ${env.NTFY_TOKEN}`;
   try {
-    await fetch(`${server}/${env.NTFY_TOPIC}`, {
+    const res = await fetch(`${server}/${env.NTFY_TOPIC}`, {
       method: "POST",
-      headers: {
-        // Headers must be ASCII; keep the human location in the body only.
-        "Title": "New visitor on Wake District",
-        "Tags": "ocean,eyes",
-        "Priority": "default",
-        "Click": "https://www.wakedistrict.co.uk/",
-      },
+      headers,
       body: message,
     });
+    // Don't fail silently: surface the real status if ntfy rejected it.
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      return json({ ok: false, error: "ntfy rejected", status: res.status, detail: detail.slice(0, 200) }, 502);
+    }
   } catch (e) {
     return json({ ok: false, error: "notify failed" }, 502);
   }

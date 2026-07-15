@@ -128,24 +128,27 @@ async function sendBookingPing(env, m, amount) {
   if (!topic) return;
   const server = (env.NTFY_SERVER || "https://ntfy.sh").replace(/\/+$/, "");
   const exp = (m.experience || "Session").replace(/\s*—\s*Wake District\s*$/, "");
+  const discountLine = m.discount_code ? `Discount: ${m.discount_code} (-${m.discount_percent}%)\n` : "";
+  const notesLine = m.notes ? `Notes: ${m.notes}\n` : "";
   const body =
     `${m.customer_name || "Someone"} — ${exp}\n` +
     `${prettyDate(m.date)} at ${m.time || "?"}\n` +
     `${m.people || "?"} people · Pick-up: ${m.pickup_location || "—"}\n` +
     `Phone: ${m.customer_phone || "—"}\n` +
     `Email: ${m.customer_email || "—"}\n` +
+    discountLine +
+    notesLine +
     `Paid: ${amount}`;
+  const headers = {
+    "Title": "New booking - Wake District",
+    "Tags": "tada,ocean",
+    "Priority": "high",
+    "Click": "https://www.wakedistrict.co.uk/dashboard.html",
+  };
+  // Authenticate so ntfy.sh doesn't drop booking pings from Cloudflare's IPs.
+  if (env.NTFY_TOKEN) headers["Authorization"] = `Bearer ${env.NTFY_TOKEN}`;
   try {
-    await fetch(`${server}/${topic}`, {
-      method: "POST",
-      headers: {
-        "Title": "New booking - Wake District",
-        "Tags": "tada,ocean",
-        "Priority": "high",
-        "Click": "https://www.wakedistrict.co.uk/dashboard.html",
-      },
-      body,
-    });
+    await fetch(`${server}/${topic}`, { method: "POST", headers, body });
   } catch (e) { /* best effort */ }
 }
 
