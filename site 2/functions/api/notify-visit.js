@@ -78,9 +78,11 @@ export async function onRequestPost({ request, env }) {
     } catch { /* stats are best-effort */ }
   }
 
-  // ---- Phone ping (throttled: one person browsing = one ping) ----
-  // If the topic isn't configured yet, we've still recorded the visit above.
-  if (!env.NTFY_TOPIC) return json({ ok: true, configured: false });
+  // ---- Phone ping via Pushover (throttled: one person browsing = one ping) ----
+  // If Pushover isn't configured yet, we've still recorded the visit above.
+  const PT = (env.PUSHOVER_TOKEN || "").trim();
+  const PU = (env.PUSHOVER_USER || "").trim();
+  if (!PT || !PU) return json({ ok: true, configured: false });
 
   const cooldownMin = parseInt(env.VISIT_COOLDOWN_MIN || "30", 10) || 30;
   if (env.WD_KV) {
@@ -94,41 +96,32 @@ export async function onRequestPost({ request, env }) {
   const pageName = path === "/" || path === "/index.html" ? "the home page" : path;
   const message = `Someone from ${place} just opened ${pageName}.`;
 
-  const server = (env.NTFY_SERVER || "https://ntfy.sh").replace(/\/+$/, "");
-  const headers = {
-    // Headers must be ASCII; keep the human location in the body only.
-    "Title": "New visitor on Wake District",
-    "Tags": "ocean,eyes",
-    "Priority": "default",
-    "Click": "https://www.wakedistrict.co.uk/",
-  };
-  // Authenticate the publish so ntfy.sh doesn't rate-limit / drop pings sent
-  // from Cloudflare's shared egress IPs. Trim to strip any pasted whitespace
-  // or trailing newline that would make the header value invalid.
-  // DIAGNOSTIC: send an anonymous publish (no auth) and report ntfy's exact
-  // reply, to confirm whether ntfy is rate-limiting the shared Cloudflare IPs.
-  let url = `${server}/${env.NTFY_TOPIC}`;
+  // Pushover: reliable HTTPS push (works cleanly from Cloudflare's network).
+  const form = new URLSearchParams();
+  form.set("token", PT);
+  form.set("user", PU);
+  form.set("title", "New visitor on Wake District");
+  form.set("message", message);
+  form.set("url", "https://www.wakedistrict.co.uk/");
+  form.set("url_title", "Open the site");
+
   try {
-    // Hard timeout so a slow/hung ntfy request can never kill the worker.
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
     let res;
     try {
-      res = await fetch(url, {
+      res = await fetch("https://api.pushover.net/1/messages.json", {
         method: "POST",
-        headers,
-        body: message,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
         signal: ctrl.signal,
       });
     } finally {
       clearTimeout(timer);
     }
-    // Don't fail silently: surface the real status if ntfy rejected it.
-    // NOTE: returning 200 here (temporarily) so Cloudflare doesn't replace a
-    // 5xx body with its own error page — lets us read ntfy's actual response.
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      return json({ ok: false, error: "ntfy rejected", status: res.status, detail: detail.slice(0, 300) }, 200);
+      return json({ ok: false, error: "pushover rejected", status: res.status, detail: detail.slice(0, 300) }, 200);
     }
   } catch (e) {
     return json({ ok: false, error: "notify failed", detail: String((e && e.message) || e).slice(0, 300) }, 200);

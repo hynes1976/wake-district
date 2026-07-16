@@ -122,11 +122,11 @@ async function sendEmail(env, to, subject, html) {
   });
 }
 
-// Instant booking alert to the owner's phone via ntfy (same app as visitor pings).
+// Instant booking alert to the owner's phone via Pushover.
 async function sendBookingPing(env, m, amount) {
-  const topic = env.BOOKINGS_NTFY_TOPIC || env.NTFY_TOPIC;
-  if (!topic) return;
-  const server = (env.NTFY_SERVER || "https://ntfy.sh").replace(/\/+$/, "");
+  const PT = (env.PUSHOVER_TOKEN || "").trim();
+  const PU = (env.PUSHOVER_USER || "").trim();
+  if (!PT || !PU) return;
   const exp = (m.experience || "Session").replace(/\s*—\s*Wake District\s*$/, "");
   const discountLine = m.discount_code ? `Discount: ${m.discount_code} (-${m.discount_percent}%)\n` : "";
   const notesLine = m.notes ? `Notes: ${m.notes}\n` : "";
@@ -139,22 +139,25 @@ async function sendBookingPing(env, m, amount) {
     discountLine +
     notesLine +
     `Paid: ${amount}`;
-  const headers = {
-    "Title": "New booking - Wake District",
-    "Tags": "tada,ocean",
-    "Priority": "high",
-    "Click": "https://www.wakedistrict.co.uk/dashboard.html",
-  };
-  // Authenticate so ntfy.sh doesn't drop booking pings from Cloudflare's IPs.
-  // Trim to strip any pasted whitespace/newline that would invalidate the header.
-  const token = (env.NTFY_TOKEN || "").trim();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const form = new URLSearchParams();
+  form.set("token", PT);
+  form.set("user", PU);
+  form.set("title", "New booking - Wake District");
+  form.set("message", body);
+  form.set("priority", "1"); // high priority
+  form.set("url", "https://www.wakedistrict.co.uk/dashboard.html");
+  form.set("url_title", "Open dashboard");
   try {
-    // Hard timeout so a slow/hung ntfy request can never stall the webhook.
+    // Hard timeout so a slow/hung request can never stall the webhook.
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
-      await fetch(`${server}/${topic}`, { method: "POST", headers, body, signal: ctrl.signal });
+      await fetch("https://api.pushover.net/1/messages.json", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
+        signal: ctrl.signal,
+      });
     } finally {
       clearTimeout(timer);
     }
