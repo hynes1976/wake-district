@@ -4,11 +4,11 @@
    ============================================================ */
 
 const NAV = [
-  { href: "index.html", label: "Home" },
-  { href: "about.html", label: "About" },
-  { href: "experiences.html", label: "Experiences" },
-  { href: "contact.html", label: "Contact" },
-  { href: "faqs.html", label: "FAQs" },
+  { href: "/", label: "Home" },
+  { href: "/about", label: "About" },
+  { href: "/experiences", label: "Experiences" },
+  { href: "/contact", label: "Contact" },
+  { href: "/faqs", label: "FAQs" },
 ];
 
 // If you add your logo file at assets/img/logo-horizontal.png it will be used
@@ -30,7 +30,7 @@ function loadCloudflareAnalytics() {
 
 function brandMarkup() {
   return `
-    <a class="brand" href="index.html" aria-label="Wake District — Water & Wake Sports, Teaching, Groups">
+    <a class="brand" href="/" aria-label="Wake District — Water & Wake Sports, Teaching, Groups">
       <img class="brand-mark-img" src="assets/img/logo-mark.png" alt="" onerror="this.style.display='none';">
       <span class="brand-word">
         <span class="brand-name">WAKE DISTRICT</span>
@@ -53,7 +53,7 @@ function buildHeader() {
         ${brandMarkup()}
         <ul class="nav-links">${links}</ul>
         <div class="nav-cta">
-          <a href="book.html" class="btn btn--primary">Book Now</a>
+          <a href="/book" class="btn btn--primary">Book Now</a>
           <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false">
             <span></span><span></span><span></span>
           </button>
@@ -89,7 +89,7 @@ function buildFooter() {
           <h4>Explore</h4>
           <ul class="footer-list">
             ${NAV.map((n) => `<li><a href="${n.href}">${n.label}</a></li>`).join("")}
-            <li><a href="book.html">Book Now</a></li>
+            <li><a href="/book">Book Now</a></li>
           </ul>
         </div>
         <div>
@@ -110,7 +110,7 @@ function buildFooter() {
       </div>
       <div class="footer-bottom">
         <span>&copy; ${new Date().getFullYear()} Wake District. All rights reserved.</span>
-        <span><a href="terms.html">Terms &amp; Conditions</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy Policy</a></span>
+        <span><a href="/terms">Terms &amp; Conditions</a> &nbsp;·&nbsp; <a href="/privacy">Privacy Policy</a></span>
       </div>
     </div>`;
   document.body.appendChild(footer);
