@@ -10,21 +10,50 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/styles.css?v=3" />
   <style>
-    .admin-wrap { max-width: 620px; margin: 0 auto; }
-    .blocked-list { list-style: none; display: grid; gap: 10px; margin-top: 8px; }
-    .blocked-list li {
-      display: flex; align-items: center; justify-content: space-between;
-      background: #fbfdfe; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
-      padding: 12px 16px;
-    }
-    .blocked-list li strong { color: var(--navy); }
-    .blocked-list .none { color: var(--muted); border-style: dashed; justify-content: center; }
-    .btn--sm { padding: 8px 16px; font-size: .85rem; }
+    .admin-wrap { max-width: 640px; margin: 0 auto; }
+    .admin-msg { font-size: .9rem; margin-top: 12px; min-height: 1em; }
+    .admin-msg.err { color: #b3261e; }
+    .admin-msg.ok  { color: #1d6b3f; }
+    .btn--sm { padding: 7px 14px; font-size: .82rem; }
     .btn--danger { background: #fdecea; color: #b3261e; }
     .btn--danger:hover { background: #f9d9d5; color: #b3261e; }
-    .admin-msg { font-size: .9rem; margin-top: 12px; }
-    .admin-msg.err { color: #b3261e; }
-    .admin-msg.ok { color: #1d6b3f; }
+
+    /* calendar */
+    .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .cal-nav { background: none; border: 1.5px solid var(--line); border-radius: 9px; width: 40px; height: 40px; cursor: pointer; font-size: 1.15rem; color: var(--navy); }
+    .cal-nav:disabled { opacity: .3; cursor: default; }
+    .cal-month { font-weight: 700; color: var(--navy); }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .cal-dow { text-align: center; font-size: .72rem; font-weight: 600; color: var(--muted); padding-bottom: 2px; }
+    .cal-day { position: relative; aspect-ratio: 1; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; font-weight: 600; color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: .95rem; }
+    .cal-day:hover:not(.past) { border-color: var(--sky); }
+    .cal-day.empty { border: none; background: none; cursor: default; }
+    .cal-day.past { opacity: .32; cursor: default; background: #f6f8f9; }
+    .cal-day.blocked { background: #fdecea; border-color: #f0c2bc; color: #b3261e; }
+    .cal-day.to-block { background: #fff4e0; border-color: #f0c777; color: #8a5a00; }
+    .cal-day.to-unblock { background: #fff; border-style: dashed; color: #b3261e; text-decoration: line-through; }
+    .cal-day .hrdot { position: absolute; bottom: 6px; width: 5px; height: 5px; border-radius: 50%; background: #e08600; }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; font-size: .8rem; color: var(--muted); }
+    .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; border: 1.5px solid transparent; }
+    .lg-blocked { background: #fdecea; border-color: #f0c2bc; }
+    .lg-toblock { background: #fff4e0; border-color: #f0c777; }
+    .lg-hours { background: #e08600; border-radius: 50% !important; }
+    .save-row { display: flex; gap: 12px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+
+    /* hour slots */
+    .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; margin-top: 6px; }
+    .slot { border: 1.5px solid var(--line); border-radius: 9px; background: #fff; cursor: pointer; font-weight: 600; color: var(--navy); padding: 9px 0; font-size: .9rem; }
+    .slot:hover { border-color: var(--sky); }
+    .slot.blocked { background: #fdecea; border-color: #f0c2bc; color: #b3261e; }
+    .slot.to-block { background: #fff4e0; border-color: #f0c777; color: #8a5a00; }
+    .slot.to-unblock { background: #fff; border-style: dashed; color: #b3261e; text-decoration: line-through; }
+
+    /* summary */
+    .sum-list { list-style: none; display: grid; gap: 8px; margin-top: 8px; }
+    .sum-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fbfdfe; border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 11px 15px; }
+    .sum-list .none { color: var(--muted); border-style: dashed; justify-content: center; }
+    .sum-list small { color: var(--muted); display: block; font-weight: 500; }
+    .sum-list strong { color: var(--navy); }
   </style>
 </head>
 <body>
@@ -33,7 +62,7 @@
       <div class="section-head" style="margin-bottom:26px">
         <p class="eyebrow">Staff only</p>
         <h2>Manage availability</h2>
-        <p>Block out the days you're away or closed. Customers won't be able to book a blocked day.</p>
+        <p>Close whole days when you're away, or block individual hours on a day. Customers can't book anything you block.</p>
       </div>
 
       <!-- LOGIN -->
@@ -45,29 +74,61 @@
           </div>
         </div>
         <button class="btn btn--primary btn--block" id="unlockBtn">Unlock</button>
-        <div class="admin-msg err" id="loginMsg" style="display:none"></div>
+        <div class="admin-msg err" id="loginMsg"></div>
       </div>
 
       <!-- PANEL -->
       <div id="panel" style="display:none">
+
+        <!-- Whole days -->
         <div class="card" style="margin-bottom:22px">
-          <h3 style="margin-bottom:14px">Block a day</h3>
-          <div class="form-row cols-2" style="align-items:end">
-            <div>
-              <label for="blockDate">Date to block</label>
-              <input id="blockDate" type="date" />
-            </div>
-            <div>
-              <button class="btn btn--dark btn--block" id="addBtn">Block this day</button>
-            </div>
+          <h3 style="margin-bottom:14px">Close whole days</h3>
+          <div class="cal-head">
+            <button class="cal-nav" id="calPrev" aria-label="Previous month">‹</button>
+            <span class="cal-month" id="calMonth"></span>
+            <button class="cal-nav" id="calNext" aria-label="Next month">›</button>
           </div>
-          <div class="admin-msg" id="actionMsg" style="display:none"></div>
+          <div class="cal-grid" id="calGrid"></div>
+          <div class="legend">
+            <span><i class="lg-blocked"></i> Closed</span>
+            <span><i class="lg-toblock"></i> To change (unsaved)</span>
+            <span><i class="lg-hours"></i> Has blocked hours</span>
+          </div>
+          <div class="save-row">
+            <button class="btn btn--dark" id="saveDays" disabled>Save changes</button>
+            <a href="#" id="clearDays" style="font-size:.85rem">Discard unsaved</a>
+          </div>
+          <div class="admin-msg" id="daysMsg"></div>
         </div>
 
-        <div class="card">
-          <h3 style="margin-bottom:6px">Currently blocked days</h3>
-          <ul class="blocked-list" id="list"></ul>
+        <!-- Hours on a day -->
+        <div class="card" style="margin-bottom:22px">
+          <h3 style="margin-bottom:6px">Block specific hours on a day</h3>
+          <p style="font-size:.9rem;color:var(--muted);margin-bottom:12px">Use this to close part of a day (e.g. a private booking or a lesson).</p>
+          <div class="form-row">
+            <div>
+              <label for="hourDate">Which day?</label>
+              <input id="hourDate" type="date" />
+            </div>
+          </div>
+          <p class="admin-msg" id="hourHint" style="margin-top:10px">Pick a date to block individual hours.</p>
+          <div class="slot-grid" id="hourGrid"></div>
+          <div class="save-row">
+            <button class="btn btn--dark" id="saveHours" disabled>Save changes</button>
+            <a href="#" id="clearHours" style="font-size:.85rem">Discard unsaved</a>
+          </div>
+          <div class="admin-msg" id="hoursMsg"></div>
         </div>
+
+        <!-- Summary -->
+        <div class="card">
+          <h3 style="margin-bottom:6px">Currently blocked</h3>
+          <p style="font-size:.85rem;color:var(--muted);margin:0 0 4px">Closed days</p>
+          <ul class="sum-list" id="sumDays"></ul>
+          <p style="font-size:.85rem;color:var(--muted);margin:16px 0 4px">Days with blocked hours</p>
+          <ul class="sum-list" id="sumHours"></ul>
+        </div>
+
       </div>
     </div>
   </section>
@@ -75,79 +136,186 @@
   <script>
     const $ = (id) => document.getElementById(id);
     let PW = "";
+    let DATES = new Set();      // blocked whole days "YYYY-MM-DD"
+    let SLOTS = {};             // { "YYYY-MM-DD": Set("HH:MM") } blocked hours
+    let calRef = new Date();    // month currently shown
+    const pBlock = new Set();   // pending day blocks
+    const pUnblock = new Set(); // pending day unblocks
+    let hourDate = "";          // day chosen for hour blocking
+    const hBlock = new Set();   // pending hour blocks
+    const hUnblock = new Set(); // pending hour unblocks
 
-    const fmt = (iso) =>
-      new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
-        weekday: "long", day: "numeric", month: "long", year: "numeric",
-      });
+    const OPEN = 8, LAST = 18;  // start times 08:00 .. 18:30 (matches the booking page)
+    const pad = (n) => String(n).padStart(2, "0");
+    const isoOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+    const todayIso = new Date().toISOString().split("T")[0];
+    const fmt = (i) => new Date(i + "T00:00:00").toLocaleDateString("en-GB",
+      { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
-    async function call(action, date) {
+    async function call(payload) {
       const res = await fetch("/api/admin-block", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: PW, action, date }),
+        body: JSON.stringify({ password: PW, ...payload }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
-      return data.dates || [];
+      return data;
+    }
+    function ingest(data) {
+      DATES = new Set(data.dates || []);
+      SLOTS = {};
+      for (const [d, ts] of Object.entries(data.slots || {})) SLOTS[d] = new Set(ts);
+    }
+    function msg(id, text, kind) {
+      const el = $(id); el.textContent = text || "";
+      el.className = "admin-msg " + (kind || "");
     }
 
-    function render(dates) {
-      const list = $("list");
-      if (!dates.length) {
-        list.innerHTML = '<li class="none">No days are currently blocked.</li>';
+    /* ---- Day calendar ---- */
+    function renderCal() {
+      const y = calRef.getFullYear(), m = calRef.getMonth();
+      $("calMonth").textContent = calRef.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      const lead = (new Date(y, m, 1).getDay() + 6) % 7;   // Monday-first
+      const days = new Date(y, m + 1, 0).getDate();
+      let html = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => `<div class="cal-dow">${d}</div>`).join("");
+      for (let i = 0; i < lead; i++) html += `<div class="cal-day empty"></div>`;
+      for (let d = 1; d <= days; d++) {
+        const D = isoOf(y, m, d);
+        const past = D < todayIso;
+        const blocked = DATES.has(D);
+        let cls = "cal-day";
+        if (past) cls += " past";
+        else if (blocked && pUnblock.has(D)) cls += " to-unblock";
+        else if (blocked) cls += " blocked";
+        else if (pBlock.has(D)) cls += " to-block";
+        const hasHours = SLOTS[D] && SLOTS[D].size ? '<i class="hrdot"></i>' : "";
+        html += `<button class="${cls}" data-d="${D}" ${past ? "disabled" : ""}>${d}${hasHours}</button>`;
+      }
+      $("calGrid").innerHTML = html;
+      $("calGrid").querySelectorAll("button[data-d]").forEach((b) =>
+        b.addEventListener("click", () => toggleDay(b.dataset.d)));
+      const now = new Date();
+      $("calPrev").disabled = (y === now.getFullYear() && m === now.getMonth());
+      const n = pBlock.size + pUnblock.size;
+      $("saveDays").disabled = n === 0;
+      $("saveDays").textContent = n ? `Save ${n} change${n > 1 ? "s" : ""}` : "Save changes";
+    }
+    function toggleDay(D) {
+      if (DATES.has(D)) { pUnblock.has(D) ? pUnblock.delete(D) : pUnblock.add(D); }
+      else { pBlock.has(D) ? pBlock.delete(D) : pBlock.add(D); }
+      renderCal();
+    }
+
+    /* ---- Hour grid ---- */
+    function slotTimes() {
+      const out = [];
+      for (let h = OPEN; h <= LAST; h++) { out.push(`${pad(h)}:00`); out.push(`${pad(h)}:30`); }
+      return out;
+    }
+    function renderHours() {
+      const wrap = $("hourGrid");
+      const n = hBlock.size + hUnblock.size;
+      $("saveHours").disabled = n === 0;
+      $("saveHours").textContent = n ? `Save ${n} change${n > 1 ? "s" : ""}` : "Save changes";
+      if (!hourDate) { wrap.innerHTML = ""; $("hourHint").textContent = "Pick a date to block individual hours."; return; }
+      if (DATES.has(hourDate)) {
+        wrap.innerHTML = "";
+        $("hourHint").textContent = "That whole day is already closed. Unblock the day above first if you only want to close some hours.";
         return;
       }
-      list.innerHTML = dates
-        .map(
-          (d) => `<li><strong>${fmt(d)}</strong>
-            <button class="btn btn--danger btn--sm" data-d="${d}">Unblock</button></li>`
-        )
-        .join("");
-      list.querySelectorAll("button[data-d]").forEach((b) =>
+      $("hourHint").textContent = "Tap the start times to block. Each covers a 30-minute slot.";
+      const blocked = SLOTS[hourDate] || new Set();
+      wrap.innerHTML = slotTimes().map((t) => {
+        const isB = blocked.has(t);
+        let cls = "slot";
+        if (isB && hUnblock.has(t)) cls += " to-unblock";
+        else if (isB) cls += " blocked";
+        else if (hBlock.has(t)) cls += " to-block";
+        return `<button class="${cls}" data-t="${t}">${t}</button>`;
+      }).join("");
+      wrap.querySelectorAll("button[data-t]").forEach((b) =>
+        b.addEventListener("click", () => toggleHour(b.dataset.t)));
+    }
+    function toggleHour(t) {
+      const blocked = (SLOTS[hourDate] || new Set()).has(t);
+      if (blocked) { hUnblock.has(t) ? hUnblock.delete(t) : hUnblock.add(t); }
+      else { hBlock.has(t) ? hBlock.delete(t) : hBlock.add(t); }
+      renderHours();
+    }
+
+    /* ---- Summary ---- */
+    function renderSummary() {
+      const days = [...DATES].sort();
+      $("sumDays").innerHTML = days.length
+        ? days.map((d) => `<li><strong>${fmt(d)}</strong>
+            <button class="btn btn--danger btn--sm" data-unday="${d}">Unblock</button></li>`).join("")
+        : '<li class="none">No whole days are closed.</li>';
+      const hourDays = Object.keys(SLOTS).filter((d) => SLOTS[d] && SLOTS[d].size).sort();
+      $("sumHours").innerHTML = hourDays.length
+        ? hourDays.map((d) => {
+            const times = [...SLOTS[d]].sort();
+            return `<li><span><strong>${fmt(d)}</strong><small>Blocked: ${times.join(", ")}</small></span>
+              <button class="btn btn--danger btn--sm" data-clearday="${d}">Clear hours</button></li>`;
+          }).join("")
+        : '<li class="none">No part-day hours are blocked.</li>';
+      $("sumDays").querySelectorAll("button[data-unday]").forEach((b) =>
         b.addEventListener("click", async () => {
           b.disabled = true;
-          try { render(await call("remove", b.dataset.d)); }
-          catch (e) { msg("actionMsg", e.message, "err"); b.disabled = false; }
-        })
-      );
+          try { ingest(await call({ action: "apply", unblock: [b.dataset.unday] })); renderAll(); }
+          catch (e) { msg("daysMsg", e.message, "err"); b.disabled = false; }
+        }));
+      $("sumHours").querySelectorAll("button[data-clearday]").forEach((b) =>
+        b.addEventListener("click", async () => {
+          b.disabled = true;
+          const d = b.dataset.clearday;
+          try { ingest(await call({ action: "applyHours", date: d, unblock: [...(SLOTS[d] || [])] })); renderAll(); }
+          catch (e) { msg("hoursMsg", e.message, "err"); b.disabled = false; }
+        }));
     }
 
-    function msg(id, text, kind) {
-      const el = $(id);
-      el.textContent = text;
-      el.className = "admin-msg " + (kind || "");
-      el.style.display = text ? "block" : "none";
-    }
+    function renderAll() { renderCal(); renderHours(); renderSummary(); }
 
+    /* ---- Wiring ---- */
     $("unlockBtn").addEventListener("click", async () => {
       PW = $("pw").value;
       msg("loginMsg", "", "");
       try {
-        const dates = await call("list");
+        ingest(await call({ action: "list" }));
         $("loginCard").style.display = "none";
         $("panel").style.display = "block";
-        render(dates);
-      } catch (e) {
-        PW = "";
-        msg("loginMsg", e.message, "err");
-        $("loginMsg").style.display = "block";
-      }
+        renderAll();
+      } catch (e) { PW = ""; msg("loginMsg", e.message, "err"); }
     });
     $("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("unlockBtn").click(); });
 
-    $("addBtn").addEventListener("click", async () => {
-      const date = $("blockDate").value;
-      if (!date) return msg("actionMsg", "Pick a date first.", "err");
+    $("calPrev").addEventListener("click", () => { calRef.setMonth(calRef.getMonth() - 1); renderCal(); });
+    $("calNext").addEventListener("click", () => { calRef.setMonth(calRef.getMonth() + 1); renderCal(); });
+
+    $("clearDays").addEventListener("click", (e) => { e.preventDefault(); pBlock.clear(); pUnblock.clear(); msg("daysMsg", "", ""); renderCal(); });
+    $("saveDays").addEventListener("click", async () => {
       try {
-        render(await call("add", date));
-        msg("actionMsg", "Blocked " + fmt(date) + ".", "ok");
-        $("blockDate").value = "";
-      } catch (e) { msg("actionMsg", e.message, "err"); }
+        ingest(await call({ action: "apply", block: [...pBlock], unblock: [...pUnblock] }));
+        pBlock.clear(); pUnblock.clear();
+        renderAll();
+        msg("daysMsg", "Saved. The booking calendar is updated.", "ok");
+      } catch (e) { msg("daysMsg", e.message, "err"); }
     });
 
-    // Don't let admins block dates in the past
-    $("blockDate").min = new Date().toISOString().split("T")[0];
+    $("hourDate").min = todayIso;
+    $("hourDate").addEventListener("change", (e) => {
+      hourDate = e.target.value; hBlock.clear(); hUnblock.clear(); msg("hoursMsg", "", ""); renderHours();
+    });
+    $("clearHours").addEventListener("click", (e) => { e.preventDefault(); hBlock.clear(); hUnblock.clear(); msg("hoursMsg", "", ""); renderHours(); });
+    $("saveHours").addEventListener("click", async () => {
+      if (!hourDate) return msg("hoursMsg", "Pick a date first.", "err");
+      try {
+        ingest(await call({ action: "applyHours", date: hourDate, block: [...hBlock], unblock: [...hUnblock] }));
+        hBlock.clear(); hUnblock.clear();
+        renderAll();
+        msg("hoursMsg", "Saved. Those times are now blocked for that day.", "ok");
+      } catch (e) { msg("hoursMsg", e.message, "err"); }
+    });
   </script>
 </body>
 </html>
