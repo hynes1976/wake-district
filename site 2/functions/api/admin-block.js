@@ -125,13 +125,101 @@ export async function onRequestPost({ request, env }) {
 }
 
 /* ------------------------------------------------------------
-   Zoho Calendar sync — added in phase 2.
-   Currently a safe no-op unless the ZOHO_* variables are set.
+   Zoho Calendar sync.
+
+   Keeps the Zoho calendar in step with the whole-day closures:
+   one all-day "Closed" event per contiguous blocked range. Runs
+   only when the connection is set up (client id/secret in env,
+   refresh token + calendar uid in KV — stored by /api/zoho-setup).
+   Best-effort: never throws back to the caller.
    ------------------------------------------------------------ */
-async function syncZohoDays(env, blockedDates) {
-  if (!env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET || !env.ZOHO_REFRESH_TOKEN || !env.ZOHO_CALENDAR_UID) {
-    return; // Zoho not connected yet — nothing to do.
+function ymd(iso) { return iso.replace(/-/g, ""); }
+function addDay(iso) {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// Group sorted YYYY-MM-DD dates into contiguous [{start,end}] ranges.
+function contiguousRuns(sorted) {
+  const runs = [];
+  let start = null, prev = null;
+  for (const d of sorted) {
+    if (!start) { start = d; prev = d; continue; }
+    if (d === addDay(prev)) { prev = d; }
+    else { runs.push({ start, end: prev }); start = d; prev = d; }
   }
-  // (Reconciliation of contiguous blocked-day ranges to Zoho all-day events
-  //  is implemented in phase 2 once the connection is set up.)
+  if (start) runs.push({ start, end: prev });
+  return runs;
+}
+
+async function syncZohoDays(env, blockedDates) {
+  // Diagnostics: record the last sync outcome to KV "zoho_last_sync" (no secrets).
+  const log = { at: new Date().toISOString(), steps: [] };
+  const save = async () => { try { await env.WD_KV.put("zoho_last_sync", JSON.stringify(log)); } catch {} };
+
+  if (!env.WD_KV || !env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) { log.stop = "no env"; return save(); }
+  const calUid = await env.WD_KV.get("zoho_calendar_uid");
+  const refresh = await env.WD_KV.get("zoho_refresh_token");
+  if (!calUid || !refresh) { log.stop = "not connected (no KV token/uid)"; return save(); }
+
+  const accountsHost = (env.ZOHO_ACCOUNTS_HOST || "https://accounts.zoho.eu").replace(/\/+$/, "");
+  const calHost = (env.ZOHO_CALENDAR_HOST || "https://calendar.zoho.eu").replace(/\/+$/, "");
+  const TZ = env.ZOHO_TIMEZONE || "Europe/London";
+  const TITLE = env.ZOHO_EVENT_TITLE || "Wake District — Closed";
+
+  // 1. Refresh token -> access token
+  const tf = new URLSearchParams();
+  tf.set("grant_type", "refresh_token");
+  tf.set("client_id", env.ZOHO_CLIENT_ID.trim());
+  tf.set("client_secret", env.ZOHO_CLIENT_SECRET.trim());
+  tf.set("refresh_token", refresh);
+  const tr = await fetch(`${accountsHost}/oauth/v2/token`, {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: tf.toString(),
+  });
+  const tok = await tr.json().catch(() => ({}));
+  const access = tok.access_token;
+  if (!access) { log.stop = "no access token"; log.tokenResp = tok; return save(); }
+  const authHeaders = { Authorization: `Zoho-oauthtoken ${access}` };
+
+  // 2. Work out the ranges we want, and the events we already made
+  const runs = contiguousRuns([...new Set(blockedDates)].filter(isDate).sort());
+  const want = new Set(runs.map((r) => `${r.start}~${r.end}`));
+  const raw = await env.WD_KV.get("zoho_events");
+  const map = raw ? JSON.parse(raw) : {}; // { "start~end": { uid, etag } }
+  log.runs = runs.map((r) => `${r.start}~${r.end}`);
+
+  // 3. Delete events for ranges that are no longer blocked
+  for (const key of Object.keys(map)) {
+    if (want.has(key)) continue;
+    const ev = map[key] || {};
+    try {
+      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}?etag=${encodeURIComponent(ev.etag || "")}`,
+        { method: "DELETE", headers: authHeaders });
+      log.steps.push({ delete: key, status: dr.status });
+    } catch (e) { log.steps.push({ delete: key, error: String(e) }); }
+    delete map[key];
+  }
+
+  // 4. Create an all-day event for each new range (end is exclusive for all-day)
+  for (const r of runs) {
+    const key = `${r.start}~${r.end}`;
+    if (map[key]) continue;
+    const eventdata = JSON.stringify({
+      title: TITLE,
+      isallday: true,
+      dateandtime: { timezone: TZ, start: ymd(r.start), end: ymd(addDay(r.end)) },
+    });
+    try {
+      const cr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events?eventdata=${encodeURIComponent(eventdata)}`,
+        { method: "POST", headers: authHeaders });
+      const cj = await cr.json().catch(() => ({}));
+      const ev = (cj.events && cj.events[0]) || {};
+      if (ev.uid) map[key] = { uid: ev.uid, etag: ev.etag || "" };
+      log.steps.push({ create: key, status: cr.status, gotUid: !!ev.uid, resp: cj });
+    } catch (e) { log.steps.push({ create: key, error: String(e) }); }
+  }
+
+  await env.WD_KV.put("zoho_events", JSON.stringify(map));
+  log.eventMap = Object.keys(map);
+  return save();
 }

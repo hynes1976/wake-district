@@ -101,8 +101,23 @@ export async function onRequestPost({ request, env }) {
   return core(env, (b.code || "").trim(), (b.uid || "").trim());
 }
 
-// GET is only for a quick calendar-UID override (no sensitive data): ?uid=...
+// GET:
+//   ?debug=1  -> show the last sync outcome + stored event map (no secrets)
+//   ?uid=...  -> quick calendar-UID override
 export async function onRequestGet({ request, env }) {
-  const uid = (new URL(request.url).searchParams.get("uid") || "").trim();
+  const url = new URL(request.url);
+  if (url.searchParams.get("debug")) {
+    const last = await env.WD_KV.get("zoho_last_sync");
+    const events = await env.WD_KV.get("zoho_events");
+    const calUid = await env.WD_KV.get("zoho_calendar_uid");
+    return json({
+      ok: true,
+      connected: !!(await env.WD_KV.get("zoho_refresh_token")),
+      calendarUid: calUid || null,
+      eventMap: events ? JSON.parse(events) : {},
+      lastSync: last ? JSON.parse(last) : null,
+    });
+  }
+  const uid = (url.searchParams.get("uid") || "").trim();
   return core(env, "", uid);
 }
