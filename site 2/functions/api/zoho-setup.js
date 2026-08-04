@@ -17,11 +17,21 @@
                 ZOHO_CALENDAR_HOST (default https://calendar.zoho.eu)
    ============================================================ */
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj, null, 2), {
     status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS },
   });
+
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 async function core(env, code, pickUid) {
   if (!env.WD_KV) return json({ error: "WD_KV binding missing." }, 500);
