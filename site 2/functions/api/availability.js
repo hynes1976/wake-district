@@ -20,15 +20,28 @@ const json = (obj) =>
 export async function onRequestGet({ env }) {
   let blocked = [];
   let booked = {};
+  let bookings = {};
+  let blockedSlots = {};
   try {
     if (env.WD_KV) {
       const b = await env.WD_KV.get("blocked_dates");
       if (b) blocked = JSON.parse(b);
       const k = await env.WD_KV.get("booked_slots");
       if (k) booked = JSON.parse(k);
+      const bk = await env.WD_KV.get("bookings");
+      if (bk) bookings = JSON.parse(bk);
+      const bs = await env.WD_KV.get("blocked_slots");
+      if (bs) blockedSlots = JSON.parse(bs);
     }
   } catch {
     /* fall through to empty */
   }
-  return json({ blocked, booked });
+  // Merge admin-blocked hours into the "booked" start slots so the booking
+  // calendar automatically hides those times (same treatment as taken slots).
+  for (const [d, times] of Object.entries(blockedSlots || {})) {
+    const set = new Set(booked[d] || []);
+    (times || []).forEach((t) => set.add(t));
+    booked[d] = [...set].sort();
+  }
+  return json({ blocked, booked, bookings });
 }

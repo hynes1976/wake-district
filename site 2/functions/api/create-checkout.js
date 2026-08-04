@@ -54,6 +54,22 @@ async function kvJson(env, key) {
   }
 }
 
+// The 30-minute start slots a session occupies (no buffer) — used to check
+// whether a requested booking runs into an admin-blocked hour.
+function sessionSlots(time, hours) {
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return [];
+  const start = h * 60 + m;
+  const count = Math.max(1, Math.round(hours * 2));
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const t = start + i * 30;
+    if (t >= 24 * 60) break;
+    out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+  }
+  return out;
+}
+
 export async function onRequestPost({ request, env }) {
   if (!env.STRIPE_SECRET_KEY) {
     return json({ error: "Payments are not configured yet." }, 500);
@@ -107,6 +123,15 @@ export async function onRequestPost({ request, env }) {
   const bookedSlots = (await kvJson(env, "booked_slots")) || {};
   if (Array.isArray(bookedSlots[date]) && bookedSlots[date].includes(time)) {
     return json({ error: "Sorry, that start time has just been booked — please choose another." }, 409);
+  }
+
+  // Admin-blocked hours: reject if the session runs into any blocked slot.
+  const blockedSlots = (await kvJson(env, "blocked_slots")) || {};
+  if (Array.isArray(blockedSlots[date]) && blockedSlots[date].length) {
+    const dayBlocked = new Set(blockedSlots[date]);
+    if (sessionSlots(time, item.hours).some((s) => dayBlocked.has(s))) {
+      return json({ error: "Sorry, some of that time is unavailable — please choose another time or day." }, 409);
+    }
   }
 
   const origin = new URL(request.url).origin;
