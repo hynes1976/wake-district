@@ -34,7 +34,7 @@ export async function onRequestOptions() {
 }
 
 async function core(env, code, pickUid) {
-  if (!env.WD_KV) return json({ error: "WD_KV binding missing." }, 500);
+  if (!env.WD_KV) return json({ ok: false, error: "WD_KV binding missing." });
 
   const accountsHost = (env.ZOHO_ACCOUNTS_HOST || "https://accounts.zoho.eu").replace(/\/+$/, "");
   const calHost = (env.ZOHO_CALENDAR_HOST || "https://calendar.zoho.eu").replace(/\/+$/, "");
@@ -47,7 +47,8 @@ async function core(env, code, pickUid) {
   if (!code) return json({ error: "POST { code: 'YOUR_GRANT_CODE' } (or { uid: '...' } to pick a calendar)." }, 400);
 
   if (!env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) {
-    return json({ error: "ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET not found. Add them in Cloudflare and redeploy first." }, 500);
+    // NOTE: use 200 for all outcomes — Cloudflare hides the body of any 5xx.
+    return json({ ok: false, error: "ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET not found. Add them in Cloudflare and redeploy first." });
   }
 
   // 1. Grant code -> refresh token
@@ -63,7 +64,7 @@ async function core(env, code, pickUid) {
   });
   const tok = await tRes.json().catch(() => ({}));
   if (!tok.refresh_token) {
-    return json({ step: "token-exchange", ok: false, hint: "Grant code expired or scopes wrong — regenerate it.", zohoResponse: tok }, 502);
+    return json({ step: "token-exchange", ok: false, hint: "Grant code expired or scopes wrong — regenerate it.", zohoResponse: tok });
   }
   await env.WD_KV.put("zoho_refresh_token", tok.refresh_token);
 
