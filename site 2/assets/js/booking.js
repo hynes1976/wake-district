@@ -234,7 +234,12 @@ function renderDayBookings(iso) {
   el.innerHTML = html;
 }
 
-/* ---- Start times for the chosen day (minus what's taken) ---- */
+/* ---- Strike text through (combining overlay) so it shows crossed-out in the menu ---- */
+function strikeText(s) {
+  return s.split("").map((c) => c + "̶").join("");
+}
+
+/* ---- Start times for the chosen day (taken times shown struck-through) ---- */
 function renderTimes(iso) {
   const sel = $("time");
   const taken = BOOKED[iso] || new Set();
@@ -242,27 +247,32 @@ function renderTimes(iso) {
   const isToday = iso === todayISO;
 
   const opts = [];
+  let availableCount = 0;
   for (let h = OPEN_HOUR; h <= LAST_START_HOUR; h++) {
     for (const mm of ["00", "30"]) {
       if (h === LAST_START_HOUR && mm === "30") continue;
       const v = `${pad(h)}:${mm}`;
-      if (taken.has(v)) continue;                       // already booked
-      if (isToday && h * 60 + Number(mm) < nowMins + LEAD_MINUTES) continue; // need 1 hour's notice
-      opts.push(v);
+      // Times too close to now (need 1 hour's notice) are dropped entirely.
+      if (isToday && h * 60 + Number(mm) < nowMins + LEAD_MINUTES) continue;
+      if (taken.has(v)) {
+        // Keep booked/blocked times visible but crossed out and unselectable.
+        opts.push(`<option value="" disabled>${strikeText(v)}  · unavailable</option>`);
+      } else {
+        opts.push(`<option value="${v}">${v}</option>`);
+        availableCount++;
+      }
     }
   }
 
-  if (!opts.length) {
-    sel.innerHTML = '<option value="">No times left on this day</option>';
+  if (!availableCount) {
+    sel.innerHTML = '<option value="">No times available on this day</option>' + opts.join("");
     sel.disabled = true;
     $("timeHint").textContent = "That day is fully booked — please choose another date.";
     return;
   }
   sel.disabled = false;
-  sel.innerHTML =
-    '<option value="">Select a time…</option>' +
-    opts.map((v) => `<option value="${v}">${v}</option>`).join("");
-  $("timeHint").textContent = "Times already booked, or less than an hour away, won't appear here.";
+  sel.innerHTML = '<option value="">Select a time…</option>' + opts.join("");
+  $("timeHint").textContent = "Crossed-out times are already booked or unavailable and can't be selected.";
 }
 
 /* ---- Pick-up location (handles "Customer preferred" free-text) ---- */
