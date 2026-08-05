@@ -119,10 +119,17 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Sorry, we're closed on that date — please pick another day." }, 400);
   }
 
-  // Double-booking guard: is this start slot already taken?
+  // Double-booking guard + 30-minute boat turnaround.
+  // booked_slots already includes each existing booking's trailing 30-min buffer,
+  // so we just make sure the new session — PLUS its own 30-min turnaround — doesn't
+  // land on any taken slot. That guarantees at least 30 minutes between sessions
+  // on both sides (time + 0.5h adds one trailing buffer slot to the span).
   const bookedSlots = (await kvJson(env, "booked_slots")) || {};
-  if (Array.isArray(bookedSlots[date]) && bookedSlots[date].includes(time)) {
-    return json({ error: "Sorry, that start time has just been booked — please choose another." }, 409);
+  if (Array.isArray(bookedSlots[date]) && bookedSlots[date].length) {
+    const dayBooked = new Set(bookedSlots[date]);
+    if (sessionSlots(time, item.hours + 0.5).some((s) => dayBooked.has(s))) {
+      return json({ error: "Sorry, that time overlaps another booking — we need 30 minutes between sessions to turn the boat around. Please choose another time." }, 409);
+    }
   }
 
   // Admin-blocked hours: reject if the session runs into any blocked slot.
