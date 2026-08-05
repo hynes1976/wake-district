@@ -165,6 +165,43 @@ export async function onRequestGet({ request, env }) {
       return json({ ok: cr.ok, status: cr.status, gotUid: !!ev.uid, zohoResponse: cj });
     }
 
+    if (test === "synchours") {
+      // One-time: push existing blocked_slots to Zoho as timed events (verifies format).
+      const TZ = "Europe/London";
+      const TITLE = "Wake District — Closed";
+      const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+      const toHM = (mn) => `${String(Math.floor(mn / 60)).padStart(2, "0")}:${String(mn % 60).padStart(2, "0")}`;
+      const runsOf = (times) => {
+        const s = [...new Set(times || [])].sort();
+        const out = []; let a = null, p = null;
+        for (const t of s) { const mn = toMin(t); if (a === null) { a = mn; p = mn; continue; } if (mn === p + 30) p = mn; else { out.push({ start: toHM(a), end: toHM(p + 30) }); a = mn; p = mn; } }
+        if (a !== null) out.push({ start: toHM(a), end: toHM(p + 30) });
+        return out;
+      };
+      const slotsRaw = await env.WD_KV.get("blocked_slots");
+      const slots = slotsRaw ? JSON.parse(slotsRaw) : {};
+      const mapRaw = await env.WD_KV.get("zoho_hour_events");
+      const map = mapRaw ? JSON.parse(mapRaw) : {};
+      const results = [];
+      for (const [date, times] of Object.entries(slots)) {
+        for (const run of runsOf(times)) {
+          const key = `h:${date}:${run.start}~${run.end}`;
+          if (map[key]) { results.push({ key, skipped: "already synced" }); continue; }
+          const eventdata = JSON.stringify({
+            title: TITLE,
+            dateandtime: { timezone: TZ, start: `${date.replace(/-/g, "")}T${run.start.replace(":", "")}00`, end: `${date.replace(/-/g, "")}T${run.end.replace(":", "")}00` },
+          });
+          const cr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events?eventdata=${encodeURIComponent(eventdata)}`, { method: "POST", headers: auth });
+          const cj = await cr.json().catch(() => ({}));
+          const ev = (cj.events && cj.events[0]) || {};
+          if (ev.uid) map[key] = { uid: ev.uid, etag: ev.etag || "" };
+          results.push({ key, status: cr.status, gotUid: !!ev.uid, start: ev.dateandtime && ev.dateandtime.start, end: ev.dateandtime && ev.dateandtime.end, err: cj.error || undefined });
+        }
+      }
+      await env.WD_KV.put("zoho_hour_events", JSON.stringify(map));
+      return json({ ok: true, results });
+    }
+
     if (test === "cleanup") {
       // Find every TEST event in the Dec 2026 window and delete it (etag in header).
       const range = JSON.stringify({ start: "20261201", end: "20270101" });
