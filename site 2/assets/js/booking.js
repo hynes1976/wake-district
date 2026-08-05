@@ -174,23 +174,64 @@ function addTime(time, hours) {
   return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
-/* ---- Show the existing bookings for the chosen day (no personal data) ---- */
+/* ---- Merge sorted "HH:MM" 30-min start slots into {start,end} ranges (end +30m) ---- */
+function mergeSlots(times) {
+  const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const toHM = (mn) => `${pad(Math.floor(mn / 60))}:${String(mn % 60).padStart(2, "0")}`;
+  const out = [];
+  let a = null, p = null;
+  for (const t of times) {
+    const mn = toMin(t);
+    if (a === null) { a = mn; p = mn; continue; }
+    if (mn === p + 30) { p = mn; } else { out.push({ start: toHM(a), end: toHM(p + 30) }); a = mn; p = mn; }
+  }
+  if (a !== null) out.push({ start: toHM(a), end: toHM(p + 30) });
+  return out;
+}
+
+/* ---- Show what's taken on the chosen day: customer bookings + hours we've closed ---- */
 function renderDayBookings(iso) {
   const el = $("dayBookings");
   const list = BOOKINGS[iso] || [];
-  if (!list.length) {
+
+  // Start slots already occupied by real customer bookings (so we don't list them twice).
+  const occupied = new Set();
+  list.forEach((b) => {
+    let t = b.time;
+    const count = Math.max(1, Math.round((b.hours || 1) * 2));
+    for (let i = 0; i < count; i++) { occupied.add(t); t = addTime(t, 0.5); }
+  });
+
+  // Anything else marked unavailable is an hour we've closed off (admin-blocked).
+  const blocked = [...(BOOKED[iso] || [])].filter((t) => !occupied.has(t)).sort();
+  const blockedRanges = mergeSlots(blocked);
+
+  if (!list.length && !blockedRanges.length) {
     el.innerHTML = '<p class="db-empty">No bookings yet on this day — all start times are available.</p>';
     return;
   }
-  el.innerHTML =
-    '<p class="db-title">Already booked on this day:</p><ul class="db-list">' +
-    list
-      .map(
-        (b) =>
-          `<li><span class="db-time">${b.time}–${addTime(b.time, b.hours)}</span><span class="db-exp">${b.experience}</span></li>`
-      )
-      .join("") +
-    "</ul>";
+
+  let html = "";
+  if (list.length) {
+    html +=
+      '<p class="db-title">Already booked on this day:</p><ul class="db-list">' +
+      list
+        .map(
+          (b) =>
+            `<li><span class="db-time">${b.time}–${addTime(b.time, b.hours)}</span><span class="db-exp">${b.experience}</span></li>`
+        )
+        .join("") +
+      "</ul>";
+  }
+  if (blockedRanges.length) {
+    html +=
+      '<p class="db-title">Unavailable on this day:</p><ul class="db-list">' +
+      blockedRanges
+        .map((r) => `<li><span class="db-time">${r.start}–${r.end}</span><span class="db-exp">Not available</span></li>`)
+        .join("") +
+      "</ul>";
+  }
+  el.innerHTML = html;
 }
 
 /* ---- Start times for the chosen day (minus what's taken) ---- */
