@@ -166,14 +166,19 @@ export async function onRequestGet({ request, env }) {
     }
 
     if (test === "cleanup") {
-      const raw = await env.WD_KV.get("zoho_test_event");
-      if (!raw) return json({ ok: true, note: "nothing to clean up" });
-      const ev = JSON.parse(raw);
-      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}?etag=${encodeURIComponent(ev.etag || "")}`,
-        { method: "DELETE", headers: auth });
-      const dj = await dr.text().catch(() => "");
+      // Find every TEST event in the Dec 2026 window and delete it (etag in header).
+      const range = JSON.stringify({ start: "20261201", end: "20270101" });
+      const lr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events?range=${encodeURIComponent(range)}`, { headers: auth });
+      const lj = await lr.json().catch(() => ({}));
+      const evts = (lj.events || []).filter((e) => (e.title || "").includes("TEST"));
+      const results = [];
+      for (const e of evts) {
+        const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${e.uid}`,
+          { method: "DELETE", headers: { ...auth, etag: String(e.etag || "") } });
+        results.push({ uid: e.uid, status: dr.status });
+      }
       await env.WD_KV.delete("zoho_test_event");
-      return json({ ok: dr.ok, status: dr.status, zohoResponse: dj.slice(0, 400) });
+      return json({ ok: true, listStatus: lr.status, deleted: results });
     }
   }
 

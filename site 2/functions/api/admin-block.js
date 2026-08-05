@@ -195,8 +195,8 @@ async function syncZohoDays(env, blockedDates) {
     if (want.has(key)) continue;
     const ev = map[key] || {};
     try {
-      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}?etag=${encodeURIComponent(ev.etag || "")}`,
-        { method: "DELETE", headers: authHeaders });
+      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}`,
+        { method: "DELETE", headers: { ...authHeaders, etag: String(ev.etag || "") } });
       log.steps.push({ delete: key, status: dr.status });
     } catch (e) { log.steps.push({ delete: key, error: String(e) }); }
     delete map[key];
@@ -298,8 +298,8 @@ async function syncZohoHours(env, slotsByDate) {
     if (want.has(key)) continue;
     const ev = map[key] || {};
     try {
-      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}?etag=${encodeURIComponent(ev.etag || "")}`,
-        { method: "DELETE", headers: authHeaders });
+      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}`,
+        { method: "DELETE", headers: { ...authHeaders, etag: String(ev.etag || "") } });
       log.steps.push({ delete: key, status: dr.status });
     } catch (e) { log.steps.push({ delete: key, error: String(e) }); }
     delete map[key];
