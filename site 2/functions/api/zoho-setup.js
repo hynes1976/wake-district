@@ -101,23 +101,82 @@ export async function onRequestPost({ request, env }) {
   return core(env, (b.code || "").trim(), (b.uid || "").trim());
 }
 
+// Get a fresh access token from the stored refresh token.
+async function accessToken(env) {
+  const accountsHost = (env.ZOHO_ACCOUNTS_HOST || "https://accounts.zoho.eu").replace(/\/+$/, "");
+  const refresh = await env.WD_KV.get("zoho_refresh_token");
+  if (!refresh || !env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) return null;
+  const f = new URLSearchParams();
+  f.set("grant_type", "refresh_token");
+  f.set("client_id", env.ZOHO_CLIENT_ID.trim());
+  f.set("client_secret", env.ZOHO_CLIENT_SECRET.trim());
+  f.set("refresh_token", refresh);
+  const r = await fetch(`${accountsHost}/oauth/v2/token`, {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: f.toString(),
+  });
+  const j = await r.json().catch(() => ({}));
+  return j.access_token || null;
+}
+
 // GET:
-//   ?debug=1  -> show the last sync outcome + stored event map (no secrets)
-//   ?uid=...  -> quick calendar-UID override
+//   ?debug=1        -> show the last sync outcome + stored event map (no secrets)
+//   ?test=create    -> create a throwaway all-day event, return the raw Zoho response
+//   ?test=cleanup   -> delete the throwaway event
+//   ?uid=...        -> quick calendar-UID override
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
+
   if (url.searchParams.get("debug")) {
     const last = await env.WD_KV.get("zoho_last_sync");
+    const lastH = await env.WD_KV.get("zoho_last_sync_hours");
     const events = await env.WD_KV.get("zoho_events");
+    const hourEvents = await env.WD_KV.get("zoho_hour_events");
     const calUid = await env.WD_KV.get("zoho_calendar_uid");
     return json({
       ok: true,
       connected: !!(await env.WD_KV.get("zoho_refresh_token")),
       calendarUid: calUid || null,
       eventMap: events ? JSON.parse(events) : {},
+      hourEventMap: hourEvents ? JSON.parse(hourEvents) : {},
       lastSync: last ? JSON.parse(last) : null,
+      lastSyncHours: lastH ? JSON.parse(lastH) : null,
     });
   }
+
+  const test = url.searchParams.get("test");
+  if (test) {
+    const calHost = (env.ZOHO_CALENDAR_HOST || "https://calendar.zoho.eu").replace(/\/+$/, "");
+    const calUid = await env.WD_KV.get("zoho_calendar_uid");
+    const access = await accessToken(env);
+    if (!access || !calUid) return json({ ok: false, error: "No access token or calendar uid." });
+    const auth = { Authorization: `Zoho-oauthtoken ${access}` };
+
+    if (test === "create") {
+      const eventdata = JSON.stringify({
+        title: "Wake District — TEST (safe to delete)",
+        isallday: true,
+        dateandtime: { timezone: "Europe/London", start: "20261225", end: "20261227" },
+      });
+      const cr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events?eventdata=${encodeURIComponent(eventdata)}`,
+        { method: "POST", headers: auth });
+      const cj = await cr.json().catch(() => ({}));
+      const ev = (cj.events && cj.events[0]) || {};
+      if (ev.uid) await env.WD_KV.put("zoho_test_event", JSON.stringify({ uid: ev.uid, etag: ev.etag || "" }));
+      return json({ ok: cr.ok, status: cr.status, gotUid: !!ev.uid, zohoResponse: cj });
+    }
+
+    if (test === "cleanup") {
+      const raw = await env.WD_KV.get("zoho_test_event");
+      if (!raw) return json({ ok: true, note: "nothing to clean up" });
+      const ev = JSON.parse(raw);
+      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}?etag=${encodeURIComponent(ev.etag || "")}`,
+        { method: "DELETE", headers: auth });
+      const dj = await dr.text().catch(() => "");
+      await env.WD_KV.delete("zoho_test_event");
+      return json({ ok: dr.ok, status: dr.status, zohoResponse: dj.slice(0, 400) });
+    }
+  }
+
   const uid = (url.searchParams.get("uid") || "").trim();
   return core(env, "", uid);
 }

@@ -107,6 +107,8 @@ export async function onRequestPost({ request, env }) {
     if (set.size) slots[date] = [...set];
     else delete slots[date];
     const cleaned = await writeSlots(env, slots);
+    // Keep Zoho calendar in step with the blocked hours (no-op unless configured).
+    try { await syncZohoHours(env, cleaned); } catch (e) { /* never fail the block on Zoho */ }
     return json({ dates: await readDates(env), slots: cleaned });
   }
 
@@ -220,6 +222,111 @@ async function syncZohoDays(env, blockedDates) {
   }
 
   await env.WD_KV.put("zoho_events", JSON.stringify(map));
+  log.eventMap = Object.keys(map);
+  return save();
+}
+
+/* ------------------------------------------------------------
+   Zoho Calendar sync for BLOCKED HOURS.
+
+   Each contiguous run of 30-min blocked slots on a day becomes one
+   timed "Closed" event (e.g. 11:30–13:30). Reconciles against a
+   stored map so re-saving is idempotent. Best-effort.
+   ------------------------------------------------------------ */
+// Sorted ["HH:MM"] 30-min starts -> [{start,end}] with end exclusive (last + 30m).
+function slotsToRuns(times) {
+  const toMin = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const toHM = (mn) => `${String(Math.floor(mn / 60)).padStart(2, "0")}:${String(mn % 60).padStart(2, "0")}`;
+  const sorted = [...new Set(times.filter(isTime))].sort();
+  const runs = [];
+  let start = null, prev = null;
+  for (const t of sorted) {
+    const mn = toMin(t);
+    if (start === null) { start = mn; prev = mn; continue; }
+    if (mn === prev + 30) { prev = mn; }
+    else { runs.push({ start: toHM(start), end: toHM(prev + 30) }); start = mn; prev = mn; }
+  }
+  if (start !== null) runs.push({ start: toHM(start), end: toHM(prev + 30) });
+  return runs;
+}
+
+async function syncZohoHours(env, slotsByDate) {
+  const log = { at: new Date().toISOString(), steps: [] };
+  const save = async () => { try { await env.WD_KV.put("zoho_last_sync_hours", JSON.stringify(log)); } catch {} };
+
+  if (!env.WD_KV || !env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) { log.stop = "no env"; return save(); }
+  const calUid = await env.WD_KV.get("zoho_calendar_uid");
+  const refresh = await env.WD_KV.get("zoho_refresh_token");
+  if (!calUid || !refresh) { log.stop = "not connected"; return save(); }
+
+  const accountsHost = (env.ZOHO_ACCOUNTS_HOST || "https://accounts.zoho.eu").replace(/\/+$/, "");
+  const calHost = (env.ZOHO_CALENDAR_HOST || "https://calendar.zoho.eu").replace(/\/+$/, "");
+  const TZ = env.ZOHO_TIMEZONE || "Europe/London";
+  const TITLE = env.ZOHO_EVENT_TITLE || "Wake District — Closed";
+
+  const tf = new URLSearchParams();
+  tf.set("grant_type", "refresh_token");
+  tf.set("client_id", env.ZOHO_CLIENT_ID.trim());
+  tf.set("client_secret", env.ZOHO_CLIENT_SECRET.trim());
+  tf.set("refresh_token", refresh);
+  const tr = await fetch(`${accountsHost}/oauth/v2/token`, {
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: tf.toString(),
+  });
+  const tok = await tr.json().catch(() => ({}));
+  const access = tok.access_token;
+  if (!access) { log.stop = "no access token"; log.tokenResp = tok; return save(); }
+  const authHeaders = { Authorization: `Zoho-oauthtoken ${access}` };
+
+  // Desired timed events from every blocked-hour run.
+  const want = new Set();
+  const desired = []; // { key, date, start, end }
+  for (const [date, times] of Object.entries(slotsByDate || {})) {
+    if (!isDate(date)) continue;
+    for (const run of slotsToRuns(times || [])) {
+      const key = `h:${date}:${run.start}~${run.end}`;
+      want.add(key);
+      desired.push({ key, date, start: run.start, end: run.end });
+    }
+  }
+  log.want = [...want];
+
+  const raw = await env.WD_KV.get("zoho_hour_events");
+  const map = raw ? JSON.parse(raw) : {}; // { key: { uid, etag } }
+
+  // Delete events no longer wanted.
+  for (const key of Object.keys(map)) {
+    if (want.has(key)) continue;
+    const ev = map[key] || {};
+    try {
+      const dr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events/${ev.uid}?etag=${encodeURIComponent(ev.etag || "")}`,
+        { method: "DELETE", headers: authHeaders });
+      log.steps.push({ delete: key, status: dr.status });
+    } catch (e) { log.steps.push({ delete: key, error: String(e) }); }
+    delete map[key];
+  }
+
+  // Create new timed events (local time + timezone field, no offset).
+  for (const d of desired) {
+    if (map[d.key]) continue;
+    const eventdata = JSON.stringify({
+      title: TITLE,
+      dateandtime: {
+        timezone: TZ,
+        start: `${ymd(d.date)}T${d.start.replace(":", "")}00`,
+        end: `${ymd(d.date)}T${d.end.replace(":", "")}00`,
+      },
+    });
+    try {
+      const cr = await fetch(`${calHost}/api/v1/calendars/${calUid}/events?eventdata=${encodeURIComponent(eventdata)}`,
+        { method: "POST", headers: authHeaders });
+      const cj = await cr.json().catch(() => ({}));
+      const ev = (cj.events && cj.events[0]) || {};
+      if (ev.uid) map[d.key] = { uid: ev.uid, etag: ev.etag || "" };
+      log.steps.push({ create: d.key, status: cr.status, gotUid: !!ev.uid, resp: cj });
+    } catch (e) { log.steps.push({ create: d.key, error: String(e) }); }
+  }
+
+  await env.WD_KV.put("zoho_hour_events", JSON.stringify(map));
   log.eventMap = Object.keys(map);
   return save();
 }
