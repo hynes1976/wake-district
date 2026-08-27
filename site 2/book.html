@@ -141,7 +141,15 @@
             <div class="summary-line"><span>Start time</span><span id="sTime">—</span></div>
             <div class="summary-line"><span>Pick-up</span><span id="sLoc">—</span></div>
             <div class="summary-line"><span>Group size</span><span id="sPeople">—</span></div>
-            <div class="discount-box">
+            <div class="discount-box" id="voucherBox">
+              <label for="voucher">Gift voucher code</label>
+              <div class="discount-row">
+                <input id="voucher" name="voucher" placeholder="e.g. WD-XXXX-XXXX" autocomplete="off" />
+                <button type="button" class="btn btn--ghost" id="applyVoucher">Apply</button>
+              </div>
+              <p class="discount-msg" id="voucherMsg"></p>
+            </div>
+            <div class="discount-box" id="discountBox">
               <label for="discount">Discount code</label>
               <div class="discount-row">
                 <input id="discount" name="discount" placeholder="Enter code" autocomplete="off" />
@@ -168,6 +176,6 @@
   </section>
 
   <script src="assets/js/main.js"></script>
-  <script src="assets/js/booking.js?v=3"></script>
+  <script src="assets/js/booking.js?v=4"></script>
 </body>
 </html>
