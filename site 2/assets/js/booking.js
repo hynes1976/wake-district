@@ -37,7 +37,7 @@ const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, "0");
 const isoOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
-const state = { exp: null, date: "", time: "", location: "", people: "", discountCode: "", discountPercent: 0 };
+const state = { exp: null, date: "", time: "", location: "", people: "", discountCode: "", discountPercent: 0, voucher: null };
 let BLOCKED = new Set();         // holiday / closed dates "YYYY-MM-DD"
 let BOOKED = {};                 // { "YYYY-MM-DD": Set("HH:MM" occupied start slots) }
 let BOOKINGS = {};               // { "YYYY-MM-DD": [ {time, hours, experience} ] } for display
@@ -300,6 +300,16 @@ function updateSummary() {
 
   const base = state.exp ? state.exp.price : 0;
   const line = $("discountLine");
+
+  // Voucher covers the whole session — total is £0, discount is ignored.
+  if (state.voucher) {
+    line.style.display = "none";
+    $("sTotal").textContent = "£0 (voucher)";
+    $("payBtn").textContent = "Confirm Booking with Voucher";
+    return;
+  }
+  $("payBtn").textContent = "Pay & Confirm Booking";
+
   if (state.discountPercent && base) {
     const off = Math.round(base * state.discountPercent) / 100;
     const total = Math.round((base - off) * 100) / 100;
@@ -334,9 +344,60 @@ function applyDiscount() {
   updateSummary();
 }
 
+/* ---- Gift voucher code ---- */
+function clearVoucher() {
+  state.voucher = null;
+  $("discount").disabled = false;
+  updateSummary();
+}
+
+async function applyVoucher() {
+  const raw = ($("voucher").value || "").trim().toUpperCase();
+  const msg = $("voucherMsg");
+  if (!raw) {
+    clearVoucher();
+    msg.textContent = ""; msg.className = "discount-msg";
+    return;
+  }
+  msg.textContent = "Checking…"; msg.className = "discount-msg";
+  try {
+    const res = await fetch("/api/check-voucher?code=" + encodeURIComponent(raw));
+    const d = await res.json();
+    if (!d || !d.valid) {
+      clearVoucher();
+      const reasons = {
+        redeemed: "That voucher has already been used.",
+        expired: "That voucher has expired.",
+        not_found: "We couldn't find that voucher code.",
+        empty: "Please enter a code.",
+      };
+      msg.textContent = (d && reasons[d.reason]) || "That voucher code isn't valid.";
+      msg.className = "discount-msg is-bad";
+      return;
+    }
+    state.voucher = { code: d.code, experienceId: d.experienceId, experienceName: d.experienceName, hours: d.hours };
+    // Auto-select the session the voucher covers.
+    const el = document.querySelector(`.exp-option[data-id="${d.experienceId}"]`);
+    if (el) el.click();
+    // Can't combine with a discount code.
+    state.discountCode = ""; state.discountPercent = 0;
+    $("discount").value = ""; $("discount").disabled = true;
+    $("discountMsg").textContent = ""; $("discountMsg").className = "discount-msg";
+    msg.textContent = `Voucher applied — covers ${d.experienceName}. No payment needed; just choose your date, time, pick-up and group.`;
+    msg.className = "discount-msg is-ok";
+    updateSummary();
+  } catch (e) {
+    clearVoucher();
+    msg.textContent = "Couldn't check that code — please try again.";
+    msg.className = "discount-msg is-bad";
+  }
+}
+
 /* ---- Validation ---- */
 function validate() {
   if (!state.exp) return "Please choose a session.";
+  if (state.voucher && state.exp && state.exp.id !== state.voucher.experienceId)
+    return `Your voucher is for the ${state.voucher.experienceName}. Please select that session, or clear the voucher code.`;
   if (!state.date) return "Please choose a date from the calendar.";
   if (BLOCKED.has(state.date)) return "Sorry, we're closed on that date — please pick another day.";
   if (!state.time) return "Please choose a start time.";
@@ -376,6 +437,38 @@ async function handleSubmit(e) {
   const btn = $("payBtn");
   const original = btn.textContent;
   btn.disabled = true;
+
+  // Voucher redemption — no payment, book directly.
+  if (state.voucher) {
+    btn.textContent = "Confirming your booking…";
+    const vPayload = {
+      code: state.voucher.code,
+      date: state.date,
+      time: state.time,
+      location: state.location,
+      people: state.people,
+      name: $("name").value.trim(),
+      email: $("email").value.trim(),
+      phone: $("phone").value.trim(),
+      notes: $("notes").value.trim(),
+    };
+    try {
+      const res = await fetch("/api/redeem-voucher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(vPayload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Could not redeem voucher.");
+      window.location.href = data.redirect || "/booking-success.html?voucher=1";
+    } catch (e2) {
+      showError(e2.message + " If this keeps happening, please call us on 07826 551 503 and we'll book you in directly.");
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+    return;
+  }
+
   btn.textContent = "Redirecting to secure checkout…";
 
   const payload = {
@@ -419,6 +512,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("people").addEventListener("change", (e) => { state.people = e.target.value; updateSummary(); });
   $("applyDiscount").addEventListener("click", applyDiscount);
   $("discount").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyDiscount(); } });
+  $("applyVoucher").addEventListener("click", applyVoucher);
+  $("voucher").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyVoucher(); } });
   $("bookingForm").addEventListener("submit", handleSubmit);
 
   const wanted = new URLSearchParams(location.search).get("exp");
