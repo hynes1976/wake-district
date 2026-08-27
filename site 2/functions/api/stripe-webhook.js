@@ -201,6 +201,246 @@ function businessEmailHtml(m, amount) {
     </table>`;
 }
 
+/* ============================================================
+   Gift vouchers: unique code, storage, branded PDF, emails.
+   ============================================================ */
+function genVoucherCode() {
+  const A = "ACDEFGHJKLMNPQRSTUVWXYZ2345679"; // no ambiguous chars
+  const buf = new Uint8Array(8);
+  crypto.getRandomValues(buf);
+  const ch = (i) => A[buf[i] % A.length];
+  return `WD-${ch(0)}${ch(1)}${ch(2)}${ch(3)}-${ch(4)}${ch(5)}${ch(6)}${ch(7)}`;
+}
+
+async function uniqueVoucherCode(env) {
+  for (let i = 0; i < 5; i++) {
+    const code = genVoucherCode();
+    if (!env.WD_KV) return code;
+    if (!(await env.WD_KV.get(`voucher:${code}`))) return code;
+  }
+  return genVoucherCode();
+}
+
+function escapeHtml(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function handleVoucherPurchase(env, s, m) {
+  const code = await uniqueVoucherCode(env);
+  const now = new Date();
+  const exp = new Date(now); exp.setMonth(exp.getMonth() + 12);
+  const expiresISO = exp.toISOString().slice(0, 10);
+  const amount = (s.amount_total / 100).toFixed(2);
+
+  const rec = {
+    code,
+    experienceId: m.experienceId || "",
+    experienceName: m.experienceName || "Session",
+    hours: parseInt(m.hours || "1", 10) || 1,
+    status: "active",
+    amount,
+    created: now.toISOString(),
+    expires: expiresISO,
+    buyerName: m.buyer_name || "",
+    buyerEmail: m.buyer_email || s.customer_email || "",
+    recipientName: m.recipient_name || "",
+    recipientEmail: m.recipient_email || "",
+    message: m.gift_message || "",
+    isGift: !!(m.recipient_name || m.deliver_to === "recipient"),
+  };
+
+  if (env.WD_KV) {
+    await env.WD_KV.put(`voucher:${code}`, JSON.stringify(rec));
+    try {
+      const raw = await env.WD_KV.get("voucher_records");
+      const arr = raw ? JSON.parse(raw) : [];
+      arr.unshift({ created: rec.created, code, experience: rec.experienceName, amount, buyer: rec.buyerName, buyerEmail: rec.buyerEmail, recipient: rec.recipientName, expires: expiresISO, status: "active" });
+      await env.WD_KV.put("voucher_records", JSON.stringify(arr.slice(0, 300)));
+    } catch (e) { /* best effort */ }
+  }
+
+  const pdfB64 = buildVoucherPdf(rec, prettyDate(expiresISO));
+  const att = [{ filename: `WakeDistrict-Voucher-${code}.pdf`, content: pdfB64 }];
+
+  const toRecipient = m.deliver_to === "recipient" && rec.recipientEmail ? rec.recipientEmail : "";
+  const primaryTo = toRecipient || rec.buyerEmail;
+
+  if (env.RESEND_API_KEY && env.FROM_EMAIL) {
+    if (primaryTo) {
+      try { await sendEmailWithAttachment(env, primaryTo, "Your Wake District Gift Voucher 🎁", voucherEmailHtml(rec, toRecipient ? "recipient" : "buyer"), att); } catch (e) {}
+    }
+    if (toRecipient && rec.buyerEmail && rec.buyerEmail !== toRecipient) {
+      try { await sendEmailWithAttachment(env, rec.buyerEmail, "Your Wake District gift voucher (your copy) 🎁", voucherEmailHtml(rec, "buyercopy"), att); } catch (e) {}
+    }
+    if (env.BOOKINGS_EMAIL) {
+      try { await sendEmailWithAttachment(env, env.BOOKINGS_EMAIL, `Voucher sold: ${rec.experienceName} (${code})`, voucherBusinessHtml(rec, amount), []); } catch (e) {}
+    }
+  }
+  try { await sendVoucherPing(env, rec, amount); } catch (e) {}
+}
+
+async function sendEmailWithAttachment(env, to, subject, html, attachments) {
+  const payload = { from: env.FROM_EMAIL, to, subject, html };
+  if (attachments && attachments.length) payload.attachments = attachments;
+  return fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+function voucherEmailHtml(rec, mode) {
+  const greetingName = mode === "recipient" ? (rec.recipientName || "there") : (rec.buyerName || "there");
+  const intro =
+    mode === "recipient"
+      ? `${escapeHtml(rec.buyerName || "Someone")} has treated you to a Wake District experience! 🌊`
+      : mode === "buyercopy"
+      ? `Here's your copy of the gift voucher — we've also emailed it to ${escapeHtml(rec.recipientName || "the recipient")}.`
+      : rec.isGift
+      ? `Thanks for your purchase! Here's the gift voucher for ${escapeHtml(rec.recipientName || "your recipient")} — the PDF is attached to print or forward.`
+      : `Thanks for your purchase! Your voucher PDF is attached.`;
+  const msgBlock = rec.message
+    ? `<tr><td style="color:#5b7682">Message</td><td><em>“${escapeHtml(rec.message)}”</em></td></tr>`
+    : "";
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#11242f;max-width:560px">
+    <h2 style="color:#082f49">Wake District Gift Voucher 🎁</h2>
+    <p>Hi ${escapeHtml(greetingName)}, ${intro}</p>
+    <table cellpadding="8" style="border-collapse:collapse;background:#f6fafb;border-radius:8px;width:100%">
+      <tr><td style="color:#5b7682">Session</td><td><strong>${escapeHtml(rec.experienceName)}</strong> — the whole boat, up to 6 people</td></tr>
+      <tr><td style="color:#5b7682">Voucher code</td><td><strong style="font-size:18px;letter-spacing:1px">${rec.code}</strong></td></tr>
+      <tr><td style="color:#5b7682">Valid until</td><td><strong>${prettyDate(rec.expires)}</strong></td></tr>
+      ${msgBlock}
+    </table>
+    <p style="margin-top:18px"><strong>How to redeem:</strong> go to <a href="https://www.wakedistrict.co.uk/book">wakedistrict.co.uk/book</a>, choose the <strong>${escapeHtml(rec.experienceName)}</strong>, pick a date &amp; time, and enter your voucher code — no card needed.</p>
+    <p>The full voucher is attached as a PDF you can print or forward.</p>
+    <p>Questions? Call <a href="tel:07826551503">07826 551 503</a> or reply to this email.</p>
+    <p style="color:#5b7682;font-size:13px;margin-top:24px">Wake District · Lake Windermere · See you on the water!</p>
+  </div>`;
+}
+
+function voucherBusinessHtml(rec, amount) {
+  return `
+    <h2>Gift voucher sold — Wake District</h2>
+    <table cellpadding="6" style="border-collapse:collapse;font-family:Arial,sans-serif">
+      <tr><td><b>Session</b></td><td>${escapeHtml(rec.experienceName)}</td></tr>
+      <tr><td><b>Code</b></td><td>${rec.code}</td></tr>
+      <tr><td><b>Amount</b></td><td>£${amount}</td></tr>
+      <tr><td><b>Valid until</b></td><td>${prettyDate(rec.expires)}</td></tr>
+      <tr><td><b>Buyer</b></td><td>${escapeHtml(rec.buyerName)} (${escapeHtml(rec.buyerEmail)})</td></tr>
+      <tr><td><b>Gift for</b></td><td>${escapeHtml(rec.recipientName || "—")} ${rec.recipientEmail ? "(" + escapeHtml(rec.recipientEmail) + ")" : ""}</td></tr>
+      ${rec.message ? `<tr><td><b>Message</b></td><td>${escapeHtml(rec.message)}</td></tr>` : ""}
+    </table>`;
+}
+
+async function sendVoucherPing(env, rec, amount) {
+  const PT = (env.PUSHOVER_TOKEN || "").trim();
+  const PU = (env.PUSHOVER_USER || "").trim();
+  if (!PT || !PU) return;
+  const body =
+    `${rec.experienceName} voucher — £${amount}\n` +
+    `Code: ${rec.code}\n` +
+    `Buyer: ${rec.buyerName || "—"}\n` +
+    (rec.recipientName ? `Gift for: ${rec.recipientName}\n` : "") +
+    `Valid until ${prettyDate(rec.expires)}`;
+  const form = new URLSearchParams();
+  form.set("token", PT); form.set("user", PU);
+  form.set("title", "Voucher sold - Wake District");
+  form.set("message", body);
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      await fetch("https://api.pushover.net/1/messages.json", {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(), signal: ctrl.signal,
+      });
+    } finally { clearTimeout(timer); }
+  } catch (e) { /* best effort */ }
+}
+
+/* ---- Minimal self-contained PDF builder for the branded voucher ---- */
+function buildVoucherPdf(rec, expiryPretty) {
+  const W = 842, H = 595; // A4 landscape (points)
+  const NAVY = "#082f49", TEAL = "#12a5b8", INK = "#11242f", MUTED = "#5b7682", LIGHT = "#eaf4f6";
+
+  const esc = (s) => String(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  const latin1 = (s) => String(s).split("").map((c) => (c.charCodeAt(0) > 255 ? "?" : c)).join("");
+  const rgb = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    return ((n >> 16 & 255) / 255).toFixed(3) + " " + ((n >> 8 & 255) / 255).toFixed(3) + " " + ((n & 255) / 255).toFixed(3);
+  };
+  const T = (x, y, size, font, color, str) =>
+    `BT /${font} ${size} Tf ${rgb(color)} rg ${x} ${y} Td (${esc(latin1(str))}) Tj ET\n`;
+  const RECT = (x, y, w, h, color) => `${rgb(color)} rg ${x} ${y} ${w} ${h} re f\n`;
+  const wrap = (str, maxChars) => {
+    const words = String(str).split(/\s+/);
+    const lines = []; let line = "";
+    for (const w2 of words) {
+      if ((line + " " + w2).trim().length > maxChars) { if (line) lines.push(line); line = w2; }
+      else line = (line ? line + " " : "") + w2;
+    }
+    if (line) lines.push(line);
+    return lines.slice(0, 4);
+  };
+
+  let c = "";
+  c += RECT(0, 0, W, H, "#ffffff");
+  c += `${rgb(TEAL)} RG 3 w 22 22 ${W - 44} ${H - 44} re S\n`;
+  c += RECT(0, H - 132, W, 132, NAVY);
+  c += RECT(0, H - 140, W, 8, TEAL);
+  c += T(60, H - 78, 30, "F2", "#ffffff", "WAKE DISTRICT");
+  c += T(62, H - 104, 11, "F1", "#bfe3ea", "WATER & WAKE SPORTS   ·   LAKE WINDERMERE");
+  c += T(W - 250, H - 78, 15, "F2", "#12a5b8", "GIFT VOUCHER");
+
+  c += T(60, 410, 40, "F2", TEAL, "Gift Voucher");
+  c += T(60, 366, 24, "F2", NAVY, rec.experienceName);
+  c += T(60, 342, 13, "F1", MUTED, "The whole boat   ·   up to 6 people   ·   Lake Windermere");
+
+  c += RECT(60, 250, 430, 60, LIGHT);
+  c += T(74, 288, 10, "F1", MUTED, "VOUCHER CODE");
+  c += T(74, 262, 26, "F2", NAVY, rec.code);
+
+  c += T(60, 222, 12, "F1", INK, "Valid until: " + expiryPretty);
+  c += T(60, 202, 12, "F1", MUTED, "Value: £" + rec.amount + "   (" + rec.experienceName + ")");
+
+  if (rec.isGift && (rec.recipientName || rec.message)) {
+    let gy = 366;
+    if (rec.recipientName) { c += T(540, gy, 15, "F2", NAVY, "To: " + rec.recipientName); gy -= 26; }
+    if (rec.message) {
+      c += T(540, gy, 11, "F1", MUTED, "Message:"); gy -= 18;
+      for (const ln of wrap(rec.message, 34)) { c += T(540, gy, 12, "F3", INK, ln); gy -= 16; }
+      gy -= 4;
+    }
+    if (rec.buyerName) c += T(540, gy, 12, "F1", MUTED, "From: " + rec.buyerName);
+  }
+
+  c += RECT(60, 118, W - 120, 2, "#dbe7ea");
+  c += T(60, 92, 13, "F2", NAVY, "How to redeem");
+  c += T(60, 72, 11, "F1", INK, "Visit wakedistrict.co.uk/book, choose the " + rec.experienceName + ", pick your date & time,");
+  c += T(60, 56, 11, "F1", INK, "and enter the voucher code above at the summary - no card needed.");
+  c += T(60, 34, 9.5, "F1", MUTED, "Wake District  ·  info@wakedistrict.co.uk  ·  07826 551 503  ·  wakedistrict.co.uk");
+
+  const objs = [];
+  objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objs[2] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+  objs[3] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> >> /Contents 4 0 R >>`;
+  objs[4] = `<< /Length ${c.length} >>\nstream\n${c}endstream`;
+  objs[5] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+  objs[6] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
+  objs[7] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>";
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [];
+  for (let i = 1; i < objs.length; i++) { offsets[i] = pdf.length; pdf += `${i} 0 obj\n${objs[i]}\nendobj\n`; }
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+  for (let i = 1; i < objs.length; i++) pdf += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
+  pdf += `trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+
+  return btoa(pdf);
+}
+
 export async function onRequestPost({ request, env }) {
   const raw = await request.text();
   const ok = await verifyStripeSignature(
@@ -218,6 +458,12 @@ export async function onRequestPost({ request, env }) {
   if (!m.customer_email) m.customer_email = s.customer_email || "";
 
   const paidAmount = (s.amount_total / 100).toLocaleString("en-GB", { style: "currency", currency: "GBP" });
+
+  // Gift voucher purchase — a completely separate flow (no slot is booked).
+  if (m.type === "voucher") {
+    try { await handleVoucherPurchase(env, s, m); } catch (e) { /* best effort */ }
+    return new Response("ok", { status: 200 });
+  }
 
   // 1. Mark the slot (+ buffer) booked, for the availability calendar
   try { await recordBooking(env, m); } catch (e) { /* don't fail the webhook on this */ }
