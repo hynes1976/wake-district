@@ -202,6 +202,48 @@ function businessEmailHtml(m, amount) {
 }
 
 /* ============================================================
+   On-the-water top-up / balance payment: notify the owner only.
+   ============================================================ */
+async function handleTopup(env, s, m, paidAmount) {
+  const name = m.topup_name || "Someone";
+  const note = m.topup_note || "";
+  const amount = (s.amount_total / 100).toFixed(2);
+
+  // Instant phone alert
+  const PT = (env.PUSHOVER_TOKEN || "").trim();
+  const PU = (env.PUSHOVER_USER || "").trim();
+  if (PT && PU) {
+    const body = `Top-up paid — £${amount}\nFrom: ${name}` + (note ? `\nNote: ${note}` : "");
+    const form = new URLSearchParams();
+    form.set("token", PT); form.set("user", PU);
+    form.set("title", "Top-up paid - Wake District");
+    form.set("message", body); form.set("priority", "1");
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        await fetch("https://api.pushover.net/1/messages.json", {
+          method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: form.toString(), signal: ctrl.signal,
+        });
+      } finally { clearTimeout(timer); }
+    } catch (e) { /* best effort */ }
+  }
+
+  // Email to the business
+  if (env.RESEND_API_KEY && env.FROM_EMAIL && env.BOOKINGS_EMAIL) {
+    const html = `<h2>Top-up payment received — Wake District</h2>
+      <table cellpadding="6" style="border-collapse:collapse;font-family:Arial,sans-serif">
+        <tr><td><b>Amount</b></td><td>£${amount}</td></tr>
+        <tr><td><b>From</b></td><td>${escapeHtml(name)}</td></tr>
+        <tr><td><b>Note</b></td><td>${escapeHtml(note) || "—"}</td></tr>
+        <tr><td><b>Paid</b></td><td>${paidAmount}</td></tr>
+      </table>`;
+    try { await sendEmail(env, env.BOOKINGS_EMAIL, `Top-up paid: £${amount} from ${name}`, html); } catch (e) { /* best effort */ }
+  }
+}
+
+/* ============================================================
    Gift vouchers: unique code, storage, branded PDF, emails.
    ============================================================ */
 function genVoucherCode() {
@@ -462,6 +504,12 @@ export async function onRequestPost({ request, env }) {
   // Gift voucher purchase — a completely separate flow (no slot is booked).
   if (m.type === "voucher") {
     try { await handleVoucherPurchase(env, s, m); } catch (e) { /* best effort */ }
+    return new Response("ok", { status: 200 });
+  }
+
+  // On-the-water top-up / balance payment — notify only, no booking.
+  if (m.type === "topup") {
+    try { await handleTopup(env, s, m, paidAmount); } catch (e) { /* best effort */ }
     return new Response("ok", { status: 200 });
   }
 
