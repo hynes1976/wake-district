@@ -23,7 +23,12 @@ const EXPERIENCES = [
   { id: "full-day", name: "Full Day",        duration: "8 hours", price: 800 },
 ];
 
-const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
+// Pick-up points allowed per session length (kept in sync with create-checkout.js):
+//   1/2/3-hour  -> Fell Foot or Lakeside
+//   half/full-day -> The Swan or Lakeside
+const LONG_SESSIONS = ["half-day", "full-day"];
+const LOC = { swan: "The Swan Hotel & Spa, Newby Bridge", fell: "Fell Foot", lake: "Lakeside Hotel & Spa" };
+function locationsFor(expId) { return LONG_SESSIONS.includes(expId) ? [LOC.swan, LOC.lake] : [LOC.fell, LOC.lake]; }
 // Discount codes — the real discount is applied again on the server (create-checkout.js).
 // If you change these, change them in BOTH files. Codes are matched case-insensitively.
 const DISCOUNTS = { WD5: 5, WD10: 10 };
@@ -66,6 +71,7 @@ function renderExperiences() {
       el.classList.add("selected");
       el.querySelector("input").checked = true;
       state.exp = EXPERIENCES.find((x) => x.id === el.dataset.id);
+      renderLocations();
       updateSummary();
     });
   });
@@ -275,18 +281,29 @@ function renderTimes(iso) {
   $("timeHint").textContent = "Crossed-out times are already booked or unavailable and can't be selected.";
 }
 
-/* ---- Pick-up location (handles "Customer preferred" free-text) ---- */
-function syncLocation() {
-  const sel = $("location").value;
-  const row = $("prefLocationRow");
-  if (sel === "__other__") {
-    row.style.display = "";
-    const txt = $("locationOther").value.trim();
-    state.location = txt ? "Customer preferred: " + txt : "__other__";
-  } else {
-    row.style.display = "none";
-    state.location = sel;
+/* ---- Pick-up location (options depend on the chosen session length) ---- */
+function renderLocations() {
+  const sel = $("location");
+  if (!sel) return;
+  if (!state.exp) {
+    sel.innerHTML = '<option value="">Choose a session first…</option>';
+    sel.disabled = true;
+    state.location = "";
+    return;
   }
+  sel.disabled = false;
+  const locs = locationsFor(state.exp.id);
+  sel.innerHTML = '<option value="">Select a pick-up point…</option>' +
+    locs.map((l) => `<option value="${l}">${l}</option>`).join("");
+  state.location = "";
+  const hint = $("locationHint");
+  if (hint) hint.textContent = LONG_SESSIONS.includes(state.exp.id)
+    ? "Half-day and full-day sessions run from The Swan Hotel & Spa or Lakeside."
+    : "1, 2 and 3-hour sessions run from Fell Foot or Lakeside.";
+}
+
+function syncLocation() {
+  state.location = $("location").value;
   updateSummary();
 }
 
@@ -295,7 +312,7 @@ function updateSummary() {
   $("sExp").textContent = state.exp ? state.exp.name : "—";
   $("sDate").textContent = state.date ? prettyDate(state.date) : "—";
   $("sTime").textContent = state.time || "—";
-  $("sLoc").textContent = state.location === "__other__" ? "Customer preferred pick-up" : (state.location || "—");
+  $("sLoc").textContent = state.location || "—";
   $("sPeople").textContent = state.people ? `${state.people} ${state.people === "1" ? "person" : "people"}` : "—";
 
   const base = state.exp ? state.exp.price : 0;
@@ -402,12 +419,9 @@ function validate() {
   if (BLOCKED.has(state.date)) return "Sorry, we're closed on that date — please pick another day.";
   if (!state.time) return "Please choose a start time.";
   if (BOOKED[state.date] && BOOKED[state.date].has(state.time)) return "Sorry, that start time has just been taken — please choose another.";
-  if (!$("location").value) return "Please choose a pick-up location.";
-  if ($("location").value === "__other__" && !$("locationOther").value.trim())
-    return "Please tell us your preferred pick-up point.";
-  const preferred = $("location").value === "__other__";
-  if (SWAN_LAKESIDE_ONLY.includes(state.exp.id) && (state.location === "Fell Foot" || preferred))
-    return "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only. Please choose one of those pick-up points.";
+  if (!state.location) return "Please choose a pick-up location.";
+  if (state.exp && !locationsFor(state.exp.id).includes(state.location))
+    return "Please choose a valid pick-up location for this session.";
   if (!state.people) return "Please tell us how many people are coming.";
   const name = $("name").value.trim();
   const email = $("email").value.trim();
@@ -508,7 +522,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("time").addEventListener("change", (e) => { state.time = e.target.value; updateSummary(); });
   $("location").addEventListener("change", syncLocation);
-  $("locationOther").addEventListener("input", syncLocation);
+  renderLocations();
   $("people").addEventListener("change", (e) => { state.people = e.target.value; updateSummary(); });
   $("applyDiscount").addEventListener("click", applyDiscount);
   $("discount").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyDiscount(); } });
