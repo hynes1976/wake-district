@@ -120,6 +120,44 @@
           <div class="admin-msg" id="hoursMsg"></div>
         </div>
 
+        <!-- Issue a voucher -->
+        <div class="card" style="margin-bottom:22px">
+          <h3 style="margin-bottom:6px">Issue a voucher</h3>
+          <p style="font-size:.9rem;color:var(--muted);margin-bottom:14px">Send a customer a free session voucher — handy if they've had to cancel or want to delay. It emails them a branded voucher PDF with a unique code, valid 12 months.</p>
+          <div class="form-row">
+            <div>
+              <label for="vSession">Session</label>
+              <select id="vSession">
+                <option value="1-hour">1 Hour Time Slot (£140)</option>
+                <option value="2-hour">2 Hour Time Slot (£260)</option>
+                <option value="3-hour">3 Hour Time Slot (£360)</option>
+                <option value="half-day">Half Day — 4 hours (£450)</option>
+                <option value="full-day">Full Day — 8 hours (£800)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row cols-2" style="margin-top:12px">
+            <div>
+              <label for="vName">Recipient's name</label>
+              <input id="vName" placeholder="e.g. Sarah Jones" autocomplete="off" />
+            </div>
+            <div>
+              <label for="vEmail">Recipient's email</label>
+              <input id="vEmail" type="email" placeholder="name@example.com" autocomplete="off" />
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:12px">
+            <div>
+              <label for="vMsg">Message <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <textarea id="vMsg" placeholder="A short note to include on the voucher…" maxlength="200"></textarea>
+            </div>
+          </div>
+          <div class="save-row">
+            <button class="btn btn--dark" id="sendVoucher">Generate &amp; send voucher</button>
+          </div>
+          <div class="admin-msg" id="voucherMsg"></div>
+        </div>
+
         <!-- Summary -->
         <div class="card">
           <h3 style="margin-bottom:6px">Currently blocked</h3>
@@ -300,6 +338,35 @@
         renderAll();
         msg("daysMsg", "Saved. The booking calendar is updated.", "ok");
       } catch (e) { msg("daysMsg", e.message, "err"); }
+    });
+
+    /* ---- Issue a voucher ---- */
+    $("sendVoucher").addEventListener("click", async () => {
+      const experienceId = $("vSession").value;
+      const name = $("vName").value.trim();
+      const email = $("vEmail").value.trim();
+      const message = $("vMsg").value.trim();
+      if (!name) return msg("voucherMsg", "Please enter the recipient's name.", "err");
+      if (!/^\S+@\S+\.\S+$/.test(email)) return msg("voucherMsg", "Please enter a valid email address.", "err");
+      const btn = $("sendVoucher");
+      btn.disabled = true; const label = btn.textContent; btn.textContent = "Sending…";
+      msg("voucherMsg", "", "");
+      try {
+        const res = await fetch("/api/admin-voucher", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: PW, experienceId, name, email, message }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Something went wrong.");
+        if (data.sent) {
+          msg("voucherMsg", `Voucher ${data.code} created and emailed to ${email}.`, "ok");
+          $("vName").value = ""; $("vEmail").value = ""; $("vMsg").value = "";
+        } else {
+          msg("voucherMsg", `Voucher ${data.code} created, but the email couldn't be sent. ${data.note || ""}`.trim(), "err");
+        }
+      } catch (e) { msg("voucherMsg", e.message, "err"); }
+      finally { btn.disabled = false; btn.textContent = label; }
     });
 
     $("hourDate").min = todayIso;
