@@ -101,6 +101,27 @@
           <div class="admin-msg" id="daysMsg"></div>
         </div>
 
+        <!-- Close a range of dates -->
+        <div class="card" style="margin-bottom:22px">
+          <h3 style="margin-bottom:6px">Close a range of dates</h3>
+          <p style="font-size:.9rem;color:var(--muted);margin-bottom:12px">Close a whole block of days at once — handy for the end of the season or a winter break. Every day from the start to the end date (inclusive) is closed.</p>
+          <div class="form-row cols-2">
+            <div>
+              <label for="rangeStart">From</label>
+              <input id="rangeStart" type="date" />
+            </div>
+            <div>
+              <label for="rangeEnd">To</label>
+              <input id="rangeEnd" type="date" />
+            </div>
+          </div>
+          <div class="save-row">
+            <button class="btn btn--dark" id="closeRange">Close these dates</button>
+            <a href="#" id="reopenRange" style="font-size:.85rem">Reopen these dates instead</a>
+          </div>
+          <div class="admin-msg" id="rangeMsg"></div>
+        </div>
+
         <!-- Hours on a day -->
         <div class="card" style="margin-bottom:22px">
           <h3 style="margin-bottom:6px">Block specific hours on a day</h3>
@@ -339,6 +360,38 @@
         msg("daysMsg", "Saved. The booking calendar is updated.", "ok");
       } catch (e) { msg("daysMsg", e.message, "err"); }
     });
+
+    /* ---- Close a range of dates ---- */
+    function datesInRange(a, b) {
+      const out = [];
+      let d = new Date(a + "T00:00:00");
+      const end = new Date(b + "T00:00:00");
+      while (d <= end) {
+        out.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+        d.setDate(d.getDate() + 1);
+      }
+      return out;
+    }
+    async function applyRange(reopen) {
+      const a = $("rangeStart").value, b = $("rangeEnd").value;
+      if (!a || !b) return msg("rangeMsg", "Pick both a start and end date.", "err");
+      if (b < a) return msg("rangeMsg", "The end date must be on or after the start date.", "err");
+      const days = datesInRange(a, b);
+      if (days.length > 400) return msg("rangeMsg", "That range is over a year — please choose a shorter span.", "err");
+      const btn = $("closeRange"); btn.disabled = true;
+      msg("rangeMsg", reopen ? "Reopening…" : "Closing…", "");
+      try {
+        ingest(await call({ action: "apply", [reopen ? "unblock" : "block"]: days }));
+        renderAll();
+        const span = days.length === 1 ? fmt(days[0]) : `${fmt(a)} → ${fmt(b)} (${days.length} days)`;
+        msg("rangeMsg", `${reopen ? "Reopened" : "Closed"}: ${span}. The booking calendar is updated.`, "ok");
+      } catch (e) { msg("rangeMsg", e.message, "err"); }
+      finally { btn.disabled = false; }
+    }
+    $("rangeStart").min = todayIso;
+    $("rangeEnd").min = todayIso;
+    $("closeRange").addEventListener("click", () => applyRange(false));
+    $("reopenRange").addEventListener("click", (e) => { e.preventDefault(); applyRange(true); });
 
     /* ---- Issue a voucher ---- */
     $("sendVoucher").addEventListener("click", async () => {
