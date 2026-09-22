@@ -84,20 +84,10 @@
             <div class="form-row">
               <div>
                 <label for="location">Where would you like to be picked up? <span class="req">*</span></label>
-                <select id="location" name="location" required>
-                  <option value="">Select a pick-up point…</option>
-                  <option value="The Swan Hotel &amp; Spa, Newby Bridge">The Swan Hotel &amp; Spa, Newby Bridge</option>
-                  <option value="Fell Foot">Fell Foot</option>
-                  <option value="Lakeside Hotel &amp; Spa">Lakeside Hotel &amp; Spa</option>
-                  <option value="__other__">Customer preferred pick-up…</option>
+                <select id="location" name="location" required disabled>
+                  <option value="">Choose a session first…</option>
                 </select>
-              </div>
-            </div>
-            <div class="form-row" id="prefLocationRow" style="display:none;margin-top:12px">
-              <div>
-                <label for="locationOther">Your preferred pick-up point <span class="req">*</span></label>
-                <input id="locationOther" name="locationOther" placeholder="Tell us where you'd like to be picked up…" />
-                <p class="field-hint">We'll confirm we can reach this location before your session.</p>
+                <p class="field-hint" id="locationHint">Available pick-up points depend on your chosen session length.</p>
               </div>
             </div>
 
@@ -179,6 +169,6 @@
   </section>
 
   <script src="assets/js/main.js"></script>
-  <script src="assets/js/booking.js?v=4"></script>
+  <script src="assets/js/booking.js?v=5"></script>
 </body>
 </html>
