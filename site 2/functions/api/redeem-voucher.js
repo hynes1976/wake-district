@@ -17,12 +17,13 @@ const PRICES = {
   "half-day": { name: "Half Day (4 hours)", hours: 4 },
   "full-day": { name: "Full Day (8 hours)", hours: 8 },
 };
-const VALID_LOCATIONS = [
-  "The Swan Hotel & Spa, Newby Bridge",
-  "Fell Foot",
-  "Lakeside Hotel & Spa",
-];
-const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
+const LOC_SWAN = "The Swan Hotel & Spa, Newby Bridge";
+const LOC_FELL = "Fell Foot";
+const LOC_LAKE = "Lakeside Hotel & Spa";
+const LONG_SESSIONS = ["half-day", "full-day"];
+function allowedLocations(experienceId) {
+  return LONG_SESSIONS.includes(experienceId) ? [LOC_SWAN, LOC_LAKE] : [LOC_FELL, LOC_LAKE];
+}
 const BUFFER_SLOTS = 1; // 30-minute turnaround after each session
 
 const json = (obj, status = 200) =>
@@ -79,10 +80,10 @@ export async function onRequestPost({ request, env }) {
   // --- Booking field validation ---
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "Invalid date." }, 400);
   if (!time || !/^\d{2}:\d{2}$/.test(time)) return json({ error: "Invalid time." }, 400);
-  const isPreferred = typeof location === "string" && location.startsWith("Customer preferred: ");
-  if (!VALID_LOCATIONS.includes(location) && !isPreferred) return json({ error: "Please choose a valid pick-up location." }, 400);
-  if (SWAN_LAKESIDE_ONLY.includes(v.experienceId) && (location === "Fell Foot" || isPreferred))
-    return json({ error: "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only." }, 400);
+  if (!allowedLocations(v.experienceId).includes(location))
+    return json({ error: LONG_SESSIONS.includes(v.experienceId)
+      ? "Half-day and full-day sessions run from The Swan Hotel & Spa or Lakeside only."
+      : "1, 2 and 3-hour sessions run from Fell Foot or Lakeside only." }, 400);
   const ppl = parseInt(people, 10);
   if (!(ppl >= 1 && ppl <= 6)) return json({ error: "Group size must be 1–6." }, 400);
   if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Invalid contact details." }, 400);

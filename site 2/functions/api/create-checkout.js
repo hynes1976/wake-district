@@ -27,12 +27,16 @@ const PRICES = {
   "full-day": { name: "Full Day (8 hours) — Wake District", amount: 80000, hours: 8 },
 };
 
-const VALID_LOCATIONS = [
-  "The Swan Hotel & Spa, Newby Bridge",
-  "Fell Foot",
-  "Lakeside Hotel & Spa",
-];
-const SWAN_LAKESIDE_ONLY = ["half-day", "full-day"];
+// Pick-up points allowed per session length:
+//   1/2/3-hour  -> Fell Foot or Lakeside
+//   half/full-day -> The Swan or Lakeside
+const LOC_SWAN = "The Swan Hotel & Spa, Newby Bridge";
+const LOC_FELL = "Fell Foot";
+const LOC_LAKE = "Lakeside Hotel & Spa";
+const LONG_SESSIONS = ["half-day", "full-day"];
+function allowedLocations(experienceId) {
+  return LONG_SESSIONS.includes(experienceId) ? [LOC_SWAN, LOC_LAKE] : [LOC_FELL, LOC_LAKE];
+}
 
 // Discount codes the business can hand out. Percent off the total.
 // Keep in sync with assets/js/booking.js. Matched case-insensitively.
@@ -89,13 +93,11 @@ export async function onRequestPost({ request, env }) {
   if (!item) return json({ error: "Unknown session type." }, 400);
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "Invalid date." }, 400);
   if (!time || !/^\d{2}:\d{2}$/.test(time)) return json({ error: "Invalid time." }, 400);
-  const isPreferred = typeof location === "string" && location.startsWith("Customer preferred: ");
-  if (!VALID_LOCATIONS.includes(location) && !isPreferred)
-    return json({ error: "Please choose a valid pick-up location." }, 400);
-  if (isPreferred && location.replace("Customer preferred: ", "").trim().length < 2)
-    return json({ error: "Please tell us your preferred pick-up point." }, 400);
-  if (SWAN_LAKESIDE_ONLY.includes(experienceId) && (location === "Fell Foot" || isPreferred))
-    return json({ error: "Half-day and full-day sessions run from The Swan Hotel & Spa / Lakeside only." }, 400);
+  const allowedLocs = allowedLocations(experienceId);
+  if (!allowedLocs.includes(location))
+    return json({ error: LONG_SESSIONS.includes(experienceId)
+      ? "Half-day and full-day sessions run from The Swan Hotel & Spa or Lakeside only."
+      : "1, 2 and 3-hour sessions run from Fell Foot or Lakeside only." }, 400);
   const ppl = parseInt(people, 10);
   if (!(ppl >= 1 && ppl <= 6)) return json({ error: "Group size must be 1–6." }, 400);
   if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Invalid contact details." }, 400);

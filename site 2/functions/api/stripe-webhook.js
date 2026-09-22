@@ -301,8 +301,17 @@ async function handleVoucherPurchase(env, s, m) {
     } catch (e) { /* best effort */ }
   }
 
-  const pdfB64 = buildVoucherPdf(rec, prettyDate(expiresISO));
-  const att = [{ filename: `WakeDistrict-Voucher-${code}.pdf`, content: pdfB64 }];
+  // Build the branded photo voucher PDF (background image fetched at runtime).
+  // If the image can't be fetched, still send the email — just without the PDF.
+  let att = [];
+  try {
+    const imgRes = await fetch("https://www.wakedistrict.co.uk/assets/img/voucher-bg.jpg", { cf: { cacheTtl: 86400 } });
+    if (imgRes.ok) {
+      const imgBytes = new Uint8Array(await imgRes.arrayBuffer());
+      const pdfB64 = buildVoucherPdf(rec, imgBytes);
+      att = [{ filename: `WakeDistrict-Voucher-${code}.pdf`, content: pdfB64 }];
+    }
+  } catch (e) { /* fall back to email without attachment */ }
 
   const toRecipient = m.deliver_to === "recipient" && rec.recipientEmail ? rec.recipientEmail : "";
   const primaryTo = toRecipient || rec.buyerEmail;
@@ -401,86 +410,63 @@ async function sendVoucherPing(env, rec, amount) {
   } catch (e) { /* best effort */ }
 }
 
-/* ---- Minimal self-contained PDF builder for the branded voucher ---- */
-function buildVoucherPdf(rec, expiryPretty) {
-  const W = 842, H = 595; // A4 landscape (points)
-  const NAVY = "#082f49", TEAL = "#12a5b8", INK = "#11242f", MUTED = "#5b7682", LIGHT = "#eaf4f6";
+/* ---- Photo-based branded voucher PDF (embeds the background image) ---- */
+// Helvetica / Helvetica-Bold glyph widths (per 1000 units) for centering text.
+const HELV_W = {" ":278,"!":278,'"':355,"#":556,"$":556,"%":889,"&":667,"'":191,"(":333,")":333,"*":389,"+":584,",":278,"-":333,".":278,"/":278,"0":556,"1":556,"2":556,"3":556,"4":556,"5":556,"6":556,"7":556,"8":556,"9":556,":":278,";":278,"<":584,"=":584,">":584,"?":556,"@":1015,"A":667,"B":667,"C":722,"D":722,"E":667,"F":611,"G":778,"H":722,"I":278,"J":500,"K":667,"L":556,"M":833,"N":722,"O":778,"P":667,"Q":778,"R":722,"S":667,"T":611,"U":722,"V":667,"W":944,"X":667,"Y":667,"Z":611,"a":556,"b":556,"c":500,"d":556,"e":556,"f":278,"g":556,"h":556,"i":222,"j":222,"k":500,"l":222,"m":833,"n":556,"o":556,"p":556,"q":556,"r":333,"s":500,"t":278,"u":556,"v":500,"w":722,"x":500,"y":500,"z":500};
+const HELVB_W = {" ":278,"A":722,"B":722,"C":722,"D":722,"E":667,"F":611,"G":778,"H":722,"I":278,"J":556,"K":722,"L":611,"M":833,"N":722,"O":778,"P":667,"Q":778,"R":722,"S":667,"T":611,"U":722,"V":667,"W":944,"X":667,"Y":667,"Z":611,"a":556,"b":611,"c":556,"d":611,"e":556,"f":333,"g":611,"h":611,"i":278,"j":278,"k":556,"l":278,"m":889,"n":611,"o":611,"p":611,"q":611,"r":389,"s":556,"t":333,"u":611,"v":556,"w":778,"x":556,"y":556,"z":500,"0":556,"1":556,"2":556,"3":556,"4":556,"5":556,"6":556,"7":556,"8":556,"9":556,":":333,"-":333,".":278,",":278,"'":238};
 
-  const esc = (s) => String(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-  const latin1 = (s) => String(s).split("").map((c) => (c.charCodeAt(0) > 255 ? "?" : c)).join("");
-  const rgb = (hex) => {
-    const n = parseInt(hex.slice(1), 16);
-    return ((n >> 16 & 255) / 255).toFixed(3) + " " + ((n >> 8 & 255) / 255).toFixed(3) + " " + ((n & 255) / 255).toFixed(3);
-  };
-  const T = (x, y, size, font, color, str) =>
-    `BT /${font} ${size} Tf ${rgb(color)} rg ${x} ${y} Td (${esc(latin1(str))}) Tj ET\n`;
-  const RECT = (x, y, w, h, color) => `${rgb(color)} rg ${x} ${y} ${w} ${h} re f\n`;
-  const wrap = (str, maxChars) => {
-    const words = String(str).split(/\s+/);
-    const lines = []; let line = "";
-    for (const w2 of words) {
-      if ((line + " " + w2).trim().length > maxChars) { if (line) lines.push(line); line = w2; }
-      else line = (line ? line + " " : "") + w2;
-    }
-    if (line) lines.push(line);
-    return lines.slice(0, 4);
-  };
+function buildVoucherPdf(rec, imgBytes) {
+  const tw = (str, size, tc, bold) => { const t = bold ? HELVB_W : HELV_W; let w = 0; for (const ch of String(str)) { w += ((t[ch] || 556) / 1000) * size + tc; } return w - tc; };
+  const jpegSize = (b) => { let i = 2; while (i < b.length) { if (b[i] !== 0xFF) { i++; continue; } const m = b[i + 1]; if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) { return { h: (b[i + 5] << 8) | b[i + 6], w: (b[i + 7] << 8) | b[i + 8] }; } const len = (b[i + 2] << 8) | b[i + 3]; i += 2 + len; } return { w: 1800, h: 848 }; };
+  const PUNC = { "’": "\x92", "‘": "\x91", "“": "\x93", "”": "\x94", "–": "\x96", "—": "\x97", "…": "\x85", "•": "\x95" };
+  const win = (s) => String(s).split("").map((c) => PUNC[c] || (c.charCodeAt(0) <= 255 ? c : "?")).join("");
+  const esc = (s) => win(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  const { w: IMGW, h: IMGH } = jpegSize(imgBytes);
+  const W = 1000, H = Math.round(W * IMGH / IMGW);
+  const WHITE = "1 1 1", TEAL = "0.090 0.722 0.800", GREY = "0.82 0.88 0.90";
+  const T = (x, y, size, font, color, str, tc) => { tc = tc || 0; return `BT /${font} ${size} Tf ${tc} Tc ${color} rg 1 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)} Tm (${esc(str)}) Tj ET\n`; };
+  const ctr = (cx, y, size, font, color, str, tc, bold) => T(cx - tw(str, size, tc, bold) / 2, y, size, font, color, str, tc);
+  const wrap = (str, size, tc, bold, maxw) => { const words = String(str).split(/\s+/); const lines = []; let line = ""; for (const w of words) { const test = (line ? line + " " : "") + w; if (tw(test, size, tc, bold) > maxw && line) { lines.push(line); line = w; } else line = test; } if (line) lines.push(line); return lines.slice(0, 4); };
+  const wave = (x, y) => `${TEAL} RG 3 w ${x} ${y} m ${x + 11} ${y + 7} ${x + 23} ${y - 7} ${x + 34} ${y} c S\n`;
 
-  let c = "";
-  c += RECT(0, 0, W, H, "#ffffff");
-  c += `${rgb(TEAL)} RG 3 w 22 22 ${W - 44} ${H - 44} re S\n`;
-  c += RECT(0, H - 132, W, 132, NAVY);
-  c += RECT(0, H - 140, W, 8, TEAL);
-  c += T(60, H - 78, 30, "F2", "#ffffff", "WAKE DISTRICT");
-  c += T(62, H - 104, 11, "F1", "#bfe3ea", "WATER & WAKE SPORTS   ·   LAKE WINDERMERE");
-  c += T(W - 250, H - 78, 15, "F2", "#12a5b8", "GIFT VOUCHER");
+  const SESS = { "1-hour": "1 HOUR SESSION", "2-hour": "2 HOUR SESSION", "3-hour": "3 HOUR SESSION", "half-day": "HALF DAY SESSION", "full-day": "FULL DAY SESSION" };
+  const sessLabel = SESS[rec.experienceId] || String(rec.experienceName || "").toUpperCase();
+  const forName = ("FOR " + String(rec.recipientName || rec.buyerName || "YOU")).toUpperCase();
+  const cx = 300;
 
-  c += T(60, 410, 40, "F2", TEAL, "Gift Voucher");
-  c += T(60, 366, 24, "F2", NAVY, rec.experienceName);
-  c += T(60, 342, 13, "F1", MUTED, "The whole boat   ·   up to 6 people   ·   Lake Windermere");
-
-  c += RECT(60, 250, 430, 60, LIGHT);
-  c += T(74, 288, 10, "F1", MUTED, "VOUCHER CODE");
-  c += T(74, 262, 26, "F2", NAVY, rec.code);
-
-  c += T(60, 222, 12, "F1", INK, "Valid until: " + expiryPretty);
-  c += T(60, 202, 12, "F1", MUTED, "Value: £" + rec.amount + "   (" + rec.experienceName + ")");
-
-  if (rec.isGift && (rec.recipientName || rec.message)) {
-    let gy = 366;
-    if (rec.recipientName) { c += T(540, gy, 15, "F2", NAVY, "To: " + rec.recipientName); gy -= 26; }
-    if (rec.message) {
-      c += T(540, gy, 11, "F1", MUTED, "Message:"); gy -= 18;
-      for (const ln of wrap(rec.message, 34)) { c += T(540, gy, 12, "F3", INK, ln); gy -= 16; }
-      gy -= 4;
-    }
-    if (rec.buyerName) c += T(540, gy, 12, "F1", MUTED, "From: " + rec.buyerName);
+  let c = `q ${W} 0 0 ${H} 0 0 cm /Im0 Do Q\n`;
+  c += T(52, H - 70, 54, "F2", WHITE, "GIFT VOUCHER", 11);
+  c += ctr(cx, H - 120, 30, "F2", WHITE, forName, 7, true);
+  const fw = tw(forName, 30, 7, true);
+  c += wave(cx - fw / 2 - 52, H - 130); c += wave(cx + fw / 2 + 18, H - 130);
+  c += ctr(cx, H - 152, 12.5, "F1", GREY, "WAKE DISTRICT  ·  LAKE WINDERMERE", 4);
+  c += ctr(cx, H - 188, 22, "F2", TEAL, sessLabel, 6, true);
+  c += T(52, H - 235, 17, "F2", WHITE, "CODE:", 0);
+  c += T(52 + tw("CODE: ", 17, 0, true), H - 235, 17, "F1", WHITE, rec.code, 0);
+  if (rec.message) {
+    c += T(52, H - 270, 15, "F2", WHITE, "MESSAGE:", 0);
+    let my = H - 292; for (const ln of wrap(rec.message, 14, 0, false, 430)) { c += T(52, my, 14, "F1", WHITE, ln, 0); my -= 19; }
   }
 
-  c += RECT(60, 118, W - 120, 2, "#dbe7ea");
-  c += T(60, 92, 13, "F2", NAVY, "How to redeem");
-  c += T(60, 72, 11, "F1", INK, "Visit wakedistrict.co.uk/book, choose the " + rec.experienceName + ", pick your date & time,");
-  c += T(60, 56, 11, "F1", INK, "and enter the voucher code above at the summary - no card needed.");
-  c += T(60, 34, 9.5, "F1", MUTED, "Wake District  ·  info@wakedistrict.co.uk  ·  07826 551 503  ·  wakedistrict.co.uk");
-
-  const objs = [];
-  objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
-  objs[2] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
-  objs[3] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> >> /Contents 4 0 R >>`;
-  objs[4] = `<< /Length ${c.length} >>\nstream\n${c}endstream`;
-  objs[5] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
-  objs[6] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
-  objs[7] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>";
-
-  let pdf = "%PDF-1.4\n";
-  const offsets = [];
-  for (let i = 1; i < objs.length; i++) { offsets[i] = pdf.length; pdf += `${i} 0 obj\n${objs[i]}\nendobj\n`; }
-  const xref = pdf.length;
-  pdf += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
-  for (let i = 1; i < objs.length; i++) pdf += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
-  pdf += `trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-
-  return btoa(pdf);
+  const strB = (s) => { const a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) & 0xff; return a; };
+  const parts = []; let pos = 0; const off = [];
+  const put = (x) => { const a = (x instanceof Uint8Array) ? x : strB(x); parts.push(a); pos += a.length; };
+  put("%PDF-1.4\n");
+  const obj = (n, body) => { off[n] = pos; put(`${n} 0 obj\n`); put(body); put("\nendobj\n"); };
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> /XObject << /Im0 8 0 R >> >> /Contents 4 0 R >>`);
+  off[4] = pos; put(`4 0 obj\n<< /Length ${c.length} >>\nstream\n`); put(c); put("\nendstream\nendobj\n");
+  obj(5, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+  obj(6, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  obj(7, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>");
+  off[8] = pos; put(`8 0 obj\n<< /Type /XObject /Subtype /Image /Width ${IMGW} /Height ${IMGH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`); put(imgBytes); put("\nendstream\nendobj\n");
+  const xref = pos;
+  let xr = `xref\n0 9\n0000000000 65535 f \n`; for (let i = 1; i <= 8; i++) xr += String(off[i]).padStart(10, "0") + " 00000 n \n";
+  put(xr); put(`trailer\n<< /Size 9 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  let total = 0; for (const p of parts) total += p.length; const all = new Uint8Array(total); let o = 0; for (const p of parts) { all.set(p, o); o += p.length; }
+  let bin = ""; const chk = 0x8000; for (let i = 0; i < all.length; i += chk) bin += String.fromCharCode.apply(null, all.subarray(i, i + chk));
+  return btoa(bin);
 }
 
 export async function onRequestPost({ request, env }) {
